@@ -19,7 +19,7 @@ TextMAP: Tools for Topologically based Text Embeddings
 
 A set of tools for word and document embeddings using UMAP.
 
- * WordMAP for word embeddings
- * DocMAP for document embeddings
- * TopicMAP for joint word/document embedding
+* WordMAP for word embeddings
+* DocMAP for document embeddings
+* TopicMAP for joint word/document embedding
 
