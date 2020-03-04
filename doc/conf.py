@@ -74,15 +74,15 @@ plot_gallery = True
 master_doc = 'index'
 
 # General information about the project.
-project = u'sklearn-template'
-copyright = u'2016, Vighnesh Birodkar'
+project = u'TextMAP'
+copyright = u'2020, John Healy, Leland McInnes and Colin Weir'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 #
 # The short X.Y version.
-from skltemplate import __version__
+from textmap import __version__
 version = __version__
 # The full version, including alpha/beta/rc tags.
 release = __version__
@@ -306,10 +306,10 @@ intersphinx_mapping = {
 
 # sphinx-gallery configuration
 sphinx_gallery_conf = {
-    'doc_module': 'skltemplate',
+    'doc_module': 'textmap',
     'backreferences_dir': os.path.join('generated'),
     'reference_url': {
-        'skltemplate': None}
+        'textmap': None}
 }
 
 def setup(app):
