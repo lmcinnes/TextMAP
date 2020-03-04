@@ -21,7 +21,7 @@ URL = 'https://github.com/TutteInstitute/TextMAP'
 LICENSE = 'new BSD'
 DOWNLOAD_URL = 'https://github.com/TutteInstitute/TextMAP'
 VERSION = __version__
-INSTALL_REQUIRES = ['numpy', 'scipy', 'scikit-learn', 'numba', 'enstop']
+INSTALL_REQUIRES = ['numpy', 'scipy', 'scikit-learn', 'numba', 'enstop', 'vectorizers']
 CLASSIFIERS = ['Intended Audience :: Science/Research',
                'Intended Audience :: Developers',
                'License :: OSI Approved',
