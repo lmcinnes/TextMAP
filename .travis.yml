@@ -33,7 +33,7 @@ install:
       else
           conda install --yes numpy==$NUMPY_VERSION scipy==$SCIPY_VERSION scikit-learn==$SKLEARN_VERSION cython nose pytest pytest-cov
       fi
-  - conda install numba
+  - conda install --yes numba
   - pip install pynndescent umap-learn hdbscan enstop
   - pip install codecov
   - pip install .
