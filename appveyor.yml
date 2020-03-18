@@ -3,13 +3,6 @@ build: false
 environment:
   matrix:
     - PYTHON: "C:\\Miniconda3-x64"
-      PYTHON_VERSION: "3.5.x"
-      PYTHON_ARCH: "32"
-      NUMPY_VERSION: "1.13.1"
-      SCIPY_VERSION: "0.19.1"
-      SKLEARN_VERSION: "0.19.1"
-
-    - PYTHON: "C:\\Miniconda3-x64"
       PYTHON_VERSION: "3.6.x"
       PYTHON_ARCH: "64"
       NUMPY_VERSION: "*"
@@ -23,6 +16,8 @@ install:
   - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PYTHON%\\Library\\bin;%PATH%"
   # install the dependencies
   - "conda install --yes pip numpy==%NUMPY_VERSION% scipy==%SCIPY_VERSION% scikit-learn==%SKLEARN_VERSION% nose pytest pytest-cov"
+  - conda install --yes numba
+  - pip install pynndescent umap hdbscan enstop
   - pip install codecov
   - pip install .
 
