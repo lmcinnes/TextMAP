@@ -83,14 +83,15 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
         self
 
         """
+        binary_indicator_matrix = (X != 0).astype(np.float32)
         if self.model_type == "pLSA":
             self.model_ = enstop.PLSA(n_components=self.n_components, **fit_params).fit(
-                (X != 0).astype(np.float32)
+                binary_indicator_matrix
             )
         elif self.model_type == "EnsTop":
             self.model_ = enstop.EnsembleTopics(
                 n_components=self.n_components, **fit_params
-            ).fit((X != 0).astype(np.float32))
+            ).fit(binary_indicator_matrix)
         else:
             raise ValueError("model_type is not supported")
 
