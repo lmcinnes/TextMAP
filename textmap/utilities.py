@@ -262,7 +262,7 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
 
        """
 
-    def __init__(self, n_components=1, model_type="pLSA", **em_params):
+    def __init__(self, n_components=1, model_type="pLSA",  em_precision=1.0e-4, em_background_prior=5.0, em_threshold=1.0e-5):
 
         self.n_components = n_components
         self.model_type = model_type
