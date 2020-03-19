@@ -266,7 +266,9 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
 
         self.n_components = n_components
         self.model_type = model_type
-        self.em_params = em_params
+        self.em_threshold = em_threshold
+        self.em_background_prior = em_background_prior
+        self.em_precision = em_precision
 
     def fit(self, X, y=None, **fit_params):
         """
@@ -345,4 +347,3 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
         result, weights = multinomial_em_sparse(X, self.model_.embedding_, self.model_.components_, **self.em_params)
         self.mix_weights_ = weights
         return result
-
