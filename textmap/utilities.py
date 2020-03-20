@@ -258,7 +258,7 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
 
         optional EM params:
         * em_precision = 1e-4,
-        * em_thresh = 1e-5,
+        * em_threshold = 1e-5,
         * em_background_prior = 5.0,
 
        """
