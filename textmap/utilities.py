@@ -153,14 +153,14 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
 
 @numba.njit()
 def numba_multinomial_em_sparse(
-        indptr,
-        inds,
-        data,
-        background_i,
-        background_j,
-        precision=1e-4,
-        low_thresh=1e-5,
-        bg_prior=5.0,
+    indptr,
+    inds,
+    data,
+    background_i,
+    background_j,
+    precision=1e-4,
+    low_thresh=1e-5,
+    bg_prior=5.0,
 ):
     result = np.zeros(data.shape[0], dtype=np.float32)
     mix_weights = np.zeros(indptr.shape[0] - 1, dtype=np.float32)
@@ -169,8 +169,8 @@ def numba_multinomial_em_sparse(
     mp = 1.0 + 1.0 * np.sum(prior)
 
     for i in range(indptr.shape[0] - 1):
-        indices = inds[indptr[i]: indptr[i + 1]]
-        row_data = data[indptr[i]: indptr[i + 1]]
+        indices = inds[indptr[i] : indptr[i + 1]]
+        row_data = data[indptr[i] : indptr[i + 1]]
 
         row_background = np.empty_like(row_data)
         for idx in range(indices.shape[0]):
@@ -191,11 +191,11 @@ def numba_multinomial_em_sparse(
         change_magnitude = 1.0 + precision
 
         while (
-                change_magnitude > precision and mix_param > 1e-2 and mix_param < 1.0 - 1e-2
+            change_magnitude > precision and mix_param > 1e-2 and mix_param < 1.0 - 1e-2
         ):
 
             posterior_dist = (current_dist * mix_param) / (
-                    current_dist * mix_param + row_background * (1.0 - mix_param)
+                current_dist * mix_param + row_background * (1.0 - mix_param)
             )
 
             current_dist = posterior_dist * row_data
@@ -218,14 +218,14 @@ def numba_multinomial_em_sparse(
                     norm += current_dist[n]
             current_dist /= norm
 
-        result[indptr[i]: indptr[i + 1]] = current_dist
+        result[indptr[i] : indptr[i + 1]] = current_dist
         mix_weights[i] = mix_param
 
     return result, mix_weights
 
 
 def multinomial_em_sparse(
-        matrix, background_i, background_j, precision=1e-4, low_thresh=1e-5, bg_prior=5.0
+    matrix, background_i, background_j, precision=1e-4, low_thresh=1e-5, bg_prior=5.0
 ):
     result = matrix.tocsr().copy().astype(np.float32)
     new_data, mix_weights = numba_multinomial_em_sparse(
@@ -258,12 +258,19 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
 
         optional EM params:
         * em_precision = 1e-4,
-        * em_low_thresh = 1e-5,
+        * em_thresh = 1e-5,
         * em_background_prior = 5.0,
 
        """
 
-    def __init__(self, n_components=1, model_type="pLSA",  em_precision=1.0e-4, em_background_prior=5.0, em_threshold=1.0e-5):
+    def __init__(
+        self,
+        n_components=1,
+        model_type="pLSA",
+        em_precision=1.0e-4,
+        em_background_prior=5.0,
+        em_threshold=1.0e-5,
+    ):
 
         self.n_components = n_components
         self.model_type = model_type
@@ -290,10 +297,13 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
 
         """
         if self.model_type == "pLSA":
-            self.model_ = enstop.PLSA(n_components=self.n_components, **fit_params).fit(X)
+            self.model_ = enstop.PLSA(n_components=self.n_components, **fit_params).fit(
+                X
+            )
         elif self.model_type == "EnsTop":
             self.model_ = enstop.EnsembleTopics(
-                n_components=self.n_components, **fit_params).fit(X)
+                n_components=self.n_components, **fit_params
+            ).fit(X)
         else:
             raise ValueError("model_type is not supported")
 
@@ -320,11 +330,14 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
         check_is_fitted(self, ["model_"])
         embedding_ = self.model_.transform(X)
 
-        result, weights = multinomial_em_sparse(X, embedding_, self.model_.components_,
-                                                low_thresh = self.em_threshold,
-                                                bg_prior = self.em_background_prior,
-                                                precision = self.em_precision,
-                                            )
+        result, weights = multinomial_em_sparse(
+            X,
+            embedding_,
+            self.model_.components_,
+            low_thresh=self.em_threshold,
+            bg_prior=self.em_background_prior,
+            precision=self.em_precision,
+        )
         self.mix_weights_ = weights
 
         return result
@@ -350,10 +363,13 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
         """
 
         self.fit(X, **fit_params)
-        result, weights = multinomial_em_sparse(X, self.model_.embedding_, self.model_.components_,
-                                                low_thresh = self.em_threshold,
-                                                bg_prior = self.em_background_prior,
-                                                precision = self.em_precision,
-                                            )
+        result, weights = multinomial_em_sparse(
+            X,
+            self.model_.embedding_,
+            self.model_.components_,
+            low_thresh=self.em_threshold,
+            bg_prior=self.em_background_prior,
+            precision=self.em_precision,
+        )
         self.mix_weights_ = weights
         return result
