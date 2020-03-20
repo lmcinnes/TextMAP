@@ -257,9 +257,9 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
            * 'EnsTop'
 
         optional EM params:
-        * precision = 1e-4,
-        * low_thresh = 1e-5,
-        * bg_prior = 5.0,
+        * em_precision = 1e-4,
+        * em_low_thresh = 1e-5,
+        * em_background_prior = 5.0,
 
        """
 
@@ -319,7 +319,12 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
 
         check_is_fitted(self, ["model_"])
         embedding_ = self.model_.transform(X)
-        result, weights = multinomial_em_sparse(X, embedding_, self.model_.components_, **self.em_params)
+
+        result, weights = multinomial_em_sparse(X, embedding_, self.model_.components_,
+                                                low_thresh = self.em_threshold,
+                                                bg_prior = self.em_background_prior,
+                                                precision = self.em_precision,
+                                            )
         self.mix_weights_ = weights
 
         return result
@@ -345,6 +350,10 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
         """
 
         self.fit(X, **fit_params)
-        result, weights = multinomial_em_sparse(X, self.model_.embedding_, self.model_.components_, **self.em_params)
+        result, weights = multinomial_em_sparse(X, self.model_.embedding_, self.model_.components_,
+                                                low_thresh = self.em_threshold,
+                                                bg_prior = self.em_background_prior,
+                                                precision = self.em_precision,
+                                            )
         self.mix_weights_ = weights
         return result
