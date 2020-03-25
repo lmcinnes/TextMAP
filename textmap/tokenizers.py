@@ -75,7 +75,8 @@ class BaseTokenizer(BaseEstimator, TransformerMixin):
 class NLTKTokenizer(BaseTokenizer):
     """
     Tokenizes via NLTK sentence and word tokenizers, together with iterations of bigram contraction
-    as measured by their PMI exceeding the min_MWE_PMI value.
+    as measured by their Pairwise Mutual Information (PMI) exceeding the 
+    minimum MultiWord Expression's (MWE) PMI (min_MWE_PMI) value.
 
 
       Parameters
