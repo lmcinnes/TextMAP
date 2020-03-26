@@ -14,7 +14,7 @@ except ImportError:
     warn("The stanza library could not be imported StanzaTokenizer will not be available.")
 try:
     import spacy
-except:
+except ImportError:
     warn("The SpaCy library could not be imported SpaCyTokenizer will not be available.")
 
 
