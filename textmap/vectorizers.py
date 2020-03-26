@@ -4,7 +4,8 @@ from vectorizers._vectorizers import preprocess_token_sequences
 from .tranformers import InformationWeightTransformer, RemoveEffectsTransformer
 from .tokenizers import NLTKTokenizer
 
-class WordVectorizer (BaseEstimator, TransformerMixin):
+
+class WordVectorizer(BaseEstimator, TransformerMixin):
     def __init__(self):
         # make sure we pass the before/after as a switch
         pass
@@ -16,16 +17,18 @@ class WordVectorizer (BaseEstimator, TransformerMixin):
         # information transformer
         # em transformer
         pass
+
     pass
 
-class DocVectorizer (BaseEstimator, TransformerMixin):
 
-    def __init__(self,
-                 tokenizer=NLTKTokenizer(lower_case=False),
-                 ngram_vectorizer = NgramVectorizer(ngram_size=1),
-                 info_weight_transformer=InformationWeightTransformer(),
-                 remove_effects_transformer=RemoveEffectsTransformer(),
-                 ):
+class DocVectorizer(BaseEstimator, TransformerMixin):
+    def __init__(
+        self,
+        tokenizer=NLTKTokenizer(lower_case=False),
+        ngram_vectorizer=NgramVectorizer(ngram_size=1),
+        info_weight_transformer=InformationWeightTransformer(),
+        remove_effects_transformer=RemoveEffectsTransformer(),
+    ):
         """
         A class for converting documents into a fixed width representation.  Useful for
         comparing documents with each other.
@@ -86,10 +89,14 @@ class DocVectorizer (BaseEstimator, TransformerMixin):
         self.tokenizer.fit(X)
         tokens_by_doc = self.tokenizer.tokens_by_doc()
         self.representation_ = self.ngram_vectorizer.fit_transform(tokens_by_doc)
-        if(self.info_weight_transformer is not None):
-            self.representation_ = self.info_weight_transformer.fit_transform(self.representation_)
-        if(self.remove_effects_transformer is not None):
-            self.representation_ = self.remove_effects_transformer.fit_transform(self.representation_)
+        if self.info_weight_transformer is not None:
+            self.representation_ = self.info_weight_transformer.fit_transform(
+                self.representation_
+            )
+        if self.remove_effects_transformer is not None:
+            self.representation_ = self.remove_effects_transformer.fit_transform(
+                self.representation_
+            )
         return self
 
     def fit_transform(self, X, y=None, **fit_params):
@@ -128,10 +135,27 @@ class DocVectorizer (BaseEstimator, TransformerMixin):
         self.tokenizer.fit(X)
         tokens_by_doc = self.tokenizer.tokens_by_doc()
         token_counts = self.ngram_vectorizer.transform(tokens_by_doc)
-        if(self.info_weight_transformer is not None):
+        if self.info_weight_transformer is not None:
             token_counts = self.info_weight_transformer.transform(token_counts)
-        if (self.remove_effects_transformer is not None):
+        if self.remove_effects_transformer is not None:
             token_counts = self.remove_effects_transformer.transform(token_counts)
         return token_counts
 
 
+try:
+    import datashader as ds
+    import bokeh.plotting as bpl
+    import bokeh.transform as btr
+    import holoviews as hv
+except ImportError:
+    warn(
+        """The umap.plot package requires extra plotting libraries to be installed.
+    You can install these via pip using
+
+    pip install umap-learn[plot]
+
+    or via conda using
+
+    conda install seaborn datashader bokeh holoviews
+    """
+    )
