@@ -35,6 +35,7 @@ install:
       fi
   - conda install --yes numba
   - pip install pynndescent umap-learn hdbscan enstop
+  - pip install git+git://github.com/TutteInstitute/vectorizers
   - pip install codecov
   - pip install .
 
