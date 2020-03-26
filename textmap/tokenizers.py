@@ -1,4 +1,6 @@
 from .utilities import flatten
+from warnings import warn
+
 from sklearn.base import BaseEstimator, TransformerMixin
 from nltk.tokenize import sent_tokenize, word_tokenize, MWETokenizer, TweetTokenizer
 from nltk.collocations import BigramCollocationFinder
@@ -7,10 +9,13 @@ from sklearn.feature_extraction.text import CountVectorizer
 
 # Optional tokenization packages
 try:
-    import spacy.lang.en
     import stanza
 except ImportError:
-    pass
+    warn("The stanza library could not be imported StanzaTokenizer will not be available.")
+try:
+    import spacy
+except:
+    warn("The SpaCy library could not be imported SpaCyTokenizer will not be available.")
 
 
 class BaseTokenizer(BaseEstimator, TransformerMixin):
