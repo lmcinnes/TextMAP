@@ -9,6 +9,9 @@ from textmap import TopicMAP
 
 from textmap.vectorizers import DocVectorizer
 
+import nltk
+nltk.download('punkt')
+
 
 # @pytest.mark.parametrize(
 #     "Estimator", [WordMAP, DocMAP, TopicMAP]
