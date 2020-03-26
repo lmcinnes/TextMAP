@@ -1,17 +1,21 @@
 from .utilities import flatten
 from sklearn.base import BaseEstimator, TransformerMixin
-from nltk.tokenize import sent_tokenize, word_tokenize, MWETokenizer
+from nltk.tokenize import sent_tokenize, word_tokenize, MWETokenizer, TweetTokenizer
 from nltk.collocations import BigramCollocationFinder
 from nltk.metrics import BigramAssocMeasures
 from sklearn.feature_extraction.text import CountVectorizer
 
-import spacy.lang.en
-import stanza
+# Optional tokenization packages
+try:
+    import spacy.lang.en
+    import stanza
+except ImportError:
+    pass
 
 
 class BaseTokenizer(BaseEstimator, TransformerMixin):
     """
-    Base class for all textmap tokenizers inherit from.
+    Base class for all textmap tokenizers to inherit from.
     
       Parameters
       ----------
@@ -22,7 +26,7 @@ class BaseTokenizer(BaseEstimator, TransformerMixin):
         The maximal number of recursive bigram contractions
 
       min_collocation_score: int (default = 12)
-        The minimal PMI value to contract a bigram per iteration
+        The minimal score value to contract a bigram per iteration
 
     """
 
@@ -130,7 +134,7 @@ class NLTKTokenizer(BaseTokenizer):
         The maximal number of recursive bigram contractions
 
       min_collocation_score: int (default = 12)
-        The minimal PMI value to contract a bigram per iteration
+        The minimal score value to contract a bigram per iteration
 
     """
 
@@ -177,9 +181,84 @@ class NLTKTokenizer(BaseTokenizer):
         return self
 
 
-class CountVectorizerTokenizer(BaseTokenizer):
+class NLTKTweetTokenizer(BaseTokenizer):
     """
-    Uses CountVectorizers document preprocessing and word tokenizer (but NLTK sentence tokenizer)
+    Tokenizes via NLTK for sentences and TweetTokenizer for words, together with iterations of BaseTokenizer bigram contraction
+
+      Parameters
+      ----------
+      lower_case = bool (default = False)
+        Lower-case the sentences after tokenization.
+
+      reduce_length = bool (default = False)
+        Replaces repeated characters of length greater than 3 with the sequence of length 3.
+
+      strip_handles = bool (defaul = False)
+        Removes twitter username handles from the text
+
+      collocation_score_function = nltk.metrics.BigramAssocMeasures (default likelihood_ratio)
+        The function to score bigrams
+
+      max_collocation_iterations = int (default = 2)
+        The maximal number of recursive bigram contractions
+
+      min_collocation_score: int (default = 12)
+        The minimal score value to contract a bigram per iteration
+
+    """
+
+    def __init__(
+        self,
+        lower_case=False,
+        reduce_length=False,
+        strip_handles=False,
+        collocation_score_function=BigramAssocMeasures.likelihood_ratio,
+        max_collocation_iterations=2,
+        min_collocation_score=12,
+    ):
+        BaseTokenizer.__init__(
+            self,
+            collocation_score_function=collocation_score_function,
+            max_collocation_iterations=max_collocation_iterations,
+            min_collocation_score=min_collocation_score,
+        )
+
+        self.lower_case = lower_case
+        self.reduce_length = reduce_length
+        self.strip_handles = strip_handles
+
+    def fit(self, X, **fit_params):
+        """
+
+        Parameters
+        ----------
+        X: collection
+            The list of documents
+
+        Returns
+        -------
+        self
+        """
+        tweet_tokenize = TweetTokenizer(
+            preserve_case=not self.lower_case,
+            reduce_len=self.reduce_length,
+            strip_handles=self.strip_handles,
+        ).tokenize
+
+        self.tokens_by_sent_by_doc_ = [
+            [tweet_tokenize(sent) for sent in sent_tokenize(doc)] for doc in X
+        ]
+
+        self.iteratively_contract_bigrams()
+
+        return self
+
+
+class SKLearnTokenizer(BaseTokenizer):
+    """
+    Uses CountVectorizers' document preprocessing and word tokenizer (but NLTK sentence tokenizer)
+
+    Note: This will lower case the text.
 
     Parameters
     ----------
@@ -190,7 +269,7 @@ class CountVectorizerTokenizer(BaseTokenizer):
       The maximal number of recursive bigram contractions
 
     min_collocation_score: int (default = 12)
-      The minimal PMI value to contract a bigram per iteration
+      The minimal score value to contract a bigram per iteration
     """
 
     def fit(self, X, **fit_params):
@@ -205,10 +284,10 @@ class CountVectorizerTokenizer(BaseTokenizer):
         -------
         self
         """
-        cv_word_tokenize = CountVectorizer().build_tokenizer()
-        cv_preprocesser = CountVectorizer().build_preprocessor()
+        sk_word_tokenize = CountVectorizer().build_tokenizer()
+        sk_preprocesser = CountVectorizer().build_preprocessor()
         self.tokens_by_sent_by_doc_ = [
-            [cv_word_tokenize(sent) for sent in sent_tokenize(cv_preprocesser(doc))]
+            [sk_word_tokenize(sent) for sent in sent_tokenize(sk_preprocesser(doc))]
             for doc in X
         ]
 
@@ -232,7 +311,7 @@ class StanzaTokenizer(BaseTokenizer):
       The maximal number of recursive bigram contractions
 
     min_collocation_score: int (default = 12)
-      The minimal PMI value to contract a bigram per iteration
+      The minimal score value to contract a bigram per iteration
     """
 
     def __init__(
@@ -296,7 +375,7 @@ class SpaCyTokenizer(BaseTokenizer):
       The maximal number of recursive bigram contractions
 
     min_collocation_score: int (default = 12)
-      The minimal PMI value to contract a bigram per iteration
+      The minimal score value to contract a bigram per iteration
     """
 
     def __init__(
