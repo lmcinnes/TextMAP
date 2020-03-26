@@ -34,7 +34,8 @@ install:
           conda install --yes numpy==$NUMPY_VERSION scipy==$SCIPY_VERSION scikit-learn==$SKLEARN_VERSION cython nose pytest pytest-cov
       fi
   - conda install --yes numba
-  - pip install pynndescent umap-learn hdbscan enstop
+  - pip install pynndescent umap-learn hdbscan enstop pandas nltk
+  - pip install git+git://github.com/TutteInstitute/vectorizers
   - pip install codecov
   - pip install .
 
