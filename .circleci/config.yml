@@ -15,7 +15,7 @@ jobs:
             conda create -n testenv --yes --quiet python=3
             source activate testenv
             conda install --yes pip numpy scipy scikit-learn matplotlib sphinx sphinx_rtd_theme numpydoc pillow numba
-            pip install pynndescent umap-learn hdbscan enstop pandas
+            pip install pynndescent umap-learn hdbscan enstop pandas nltk
             pip install git+git://github.com/TutteInstitute/vectorizers
             pip install sphinx-gallery
             pip install .
