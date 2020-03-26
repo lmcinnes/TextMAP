@@ -33,7 +33,7 @@ class DocVectorizer(BaseEstimator, TransformerMixin):
         A class for converting documents into a fixed width representation.  Useful for
         comparing documents with each other.
         This is done via:
-        1) Tokenization defaults to NLTK but can use stanza, spacy or your a custom tokenizer.
+        1) Tokenization defaults to NLTK but can use stanza, spacy or a custom tokenizer.
         2) Converts this sequence of tokens into counts of n-grams (default 1-grams).
         3) Re-weights counts based on how informative the presence of an n-gram is within a document.
         4) Build a low rank model for how often we'd expect a completely random n-gram to occur your text
