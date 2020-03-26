@@ -11,26 +11,26 @@ import stanza
 
 class BaseTokenizer(BaseEstimator, TransformerMixin):
     """
-        Tokenizes via NLTK sentence and word tokenizers, together with iterations of BaseTokenizer bigram contraction
+    Tokenizes via NLTK sentence and word tokenizers, together with iterations of BaseTokenizer bigram contraction
 
-          Parameters
-          ----------
-          collocation_score_function = nltk.metrics.BigramAssocMeasures (default likelihood_ratio)
-            The function to score bigrams
+      Parameters
+      ----------
+      collocation_score_function = nltk.metrics.BigramAssocMeasures (default likelihood_ratio)
+        The function to score bigrams
 
-          max_collocation_iterations = int (default = 2)
-            The maximal number of recursive bigram contractions
+      max_collocation_iterations = int (default = 2)
+        The maximal number of recursive bigram contractions
 
-          min_collocation_score: int (default = 12)
-            The minimal PMI value to contract a bigram per iteration
+      min_collocation_score: int (default = 12)
+        The minimal PMI value to contract a bigram per iteration
 
     """
 
     def __init__(
-            self,
-            collocation_score_function=BigramAssocMeasures.likelihood_ratio,
-            max_collocation_iterations=2,
-            min_collocation_score=12,
+        self,
+        collocation_score_function=BigramAssocMeasures.likelihood_ratio,
+        max_collocation_iterations=2,
+        min_collocation_score=12,
     ):
         self.collocation_score_function = collocation_score_function
         self.max_collocation_iterations = max_collocation_iterations
@@ -95,10 +95,10 @@ class BaseTokenizer(BaseEstimator, TransformerMixin):
         return [flatten(doc) for doc in self.tokens_by_sent_by_doc()]
 
     def iteratively_contract_bigrams(self):
-        '''
-        Proceedure to iteratively contract bigrams (up to max_collocation_iterations times)
+        """
+        Procedure to iteratively contract bigrams (up to max_collocation_iterations times)
         that score higher on the collocation_function than the min_collocation_score
-        '''
+        """
         for i in range(self.max_collocation_iterations):
             bigramer = BigramCollocationFinder.from_documents(self.tokens_by_sent())
             mwes = list(
@@ -135,11 +135,11 @@ class NLTKTokenizer(BaseTokenizer):
     """
 
     def __init__(
-            self,
-            lower_case=False,
-            collocation_score_function=BigramAssocMeasures.likelihood_ratio,
-            max_collocation_iterations=2,
-            min_collocation_score=12,
+        self,
+        lower_case=False,
+        collocation_score_function=BigramAssocMeasures.likelihood_ratio,
+        max_collocation_iterations=2,
+        min_collocation_score=12,
     ):
         BaseTokenizer.__init__(
             self,
@@ -218,7 +218,7 @@ class CountVectorizerTokenizer(BaseTokenizer):
 
 
 class StanzaTokenizer(BaseTokenizer):
-    '''
+    """
 
     Parameters
     ----------
@@ -233,14 +233,15 @@ class StanzaTokenizer(BaseTokenizer):
 
     min_collocation_score: int (default = 12)
       The minimal PMI value to contract a bigram per iteration
-    '''
+    """
 
     def __init__(
-            self,
-            nlp='DEFAULT',
-            collocation_score_function=BigramAssocMeasures.likelihood_ratio,
-            max_collocation_iterations=2,
-            min_collocation_score=12):
+        self,
+        nlp="DEFAULT",
+        collocation_score_function=BigramAssocMeasures.likelihood_ratio,
+        max_collocation_iterations=2,
+        min_collocation_score=12,
+    ):
 
         BaseTokenizer.__init__(
             self,
@@ -249,7 +250,7 @@ class StanzaTokenizer(BaseTokenizer):
             min_collocation_score=min_collocation_score,
         )
 
-        if nlp == 'DEFAULT':
+        if nlp == "DEFAULT":
             # A default Stanza NLP pipeline
             stanza.download(lang="en", processors="tokenize")
             BASIC_STANZA_PIPELINE = stanza.Pipeline(processors="tokenize")
@@ -281,7 +282,7 @@ class StanzaTokenizer(BaseTokenizer):
 
 
 class SpaCyTokenizer(BaseTokenizer):
-    '''
+    """
 
     Parameters
     ----------
@@ -296,14 +297,14 @@ class SpaCyTokenizer(BaseTokenizer):
 
     min_collocation_score: int (default = 12)
       The minimal PMI value to contract a bigram per iteration
-    '''
+    """
 
     def __init__(
-            self,
-            nlp='DEFAULT',
-            collocation_score_function=BigramAssocMeasures.likelihood_ratio,
-            max_collocation_iterations=2,
-            min_collocation_score=12,
+        self,
+        nlp="DEFAULT",
+        collocation_score_function=BigramAssocMeasures.likelihood_ratio,
+        max_collocation_iterations=2,
+        min_collocation_score=12,
     ):
         BaseTokenizer.__init__(
             self,
@@ -312,10 +313,12 @@ class SpaCyTokenizer(BaseTokenizer):
             min_collocation_score=min_collocation_score,
         )
 
-        if nlp == 'DEFAULT':
+        if nlp == "DEFAULT":
             # A default spaCy NLP pipeline
             BASIC_SPACY_PIPELINE = spacy.lang.en.English()
-            BASIC_SPACY_PIPELINE.add_pipe(BASIC_SPACY_PIPELINE.create_pipe("sentencizer"))
+            BASIC_SPACY_PIPELINE.add_pipe(
+                BASIC_SPACY_PIPELINE.create_pipe("sentencizer")
+            )
             self.nlp = BASIC_SPACY_PIPELINE
         else:
             self.nlp == nlp
@@ -341,4 +344,3 @@ class SpaCyTokenizer(BaseTokenizer):
         self.iteratively_contract_bigrams()
 
         return self
-
