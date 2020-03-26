@@ -17,7 +17,7 @@ install:
   # install the dependencies
   - "conda install --yes pip numpy==%NUMPY_VERSION% scipy==%SCIPY_VERSION% scikit-learn==%SKLEARN_VERSION% nose pytest pytest-cov"
   - conda install --yes numba
-  - pip install pynndescent umap hdbscan enstop
+  - pip install pynndescent umap hdbscan enstop pandas
   - pip install git+git://github.com/TutteInstitute/vectorizers
   - pip install codecov
   - pip install .
