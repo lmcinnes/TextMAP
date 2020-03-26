@@ -7,7 +7,7 @@ from textmap import WordMAP
 from textmap import DocMAP
 from textmap import TopicMAP
 
-from textmap.vectorizers import WordVectorizer
+from textmap.vectorizers import DocVectorizer
 
 
 # @pytest.mark.parametrize(
@@ -22,8 +22,8 @@ test_text = [
     "pok wer pok qwe foo asd foo bar pok wer asd wer pok",
 ]
 
-def test_wordvectorizer_basic():
-    vectorizer = WordVectorizer()
+def test_docvectorizer_basic():
+    vectorizer = DocVectorizer()
     result = vectorizer.fit(test_text)
     assert scipy.sparse.issparse(result)
     assert result.shape == (7, 14)
