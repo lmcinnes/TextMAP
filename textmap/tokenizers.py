@@ -405,7 +405,7 @@ class SpaCyTokenizer(BaseTokenizer):
             )
             self.nlp = BASIC_SPACY_PIPELINE
         else:
-            self.nlp == nlp
+            self.nlp = nlp
 
     def fit(self, X, **fit_params):
         """
