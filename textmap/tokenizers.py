@@ -11,8 +11,8 @@ import stanza
 
 class BaseTokenizer(BaseEstimator, TransformerMixin):
     """
-    Tokenizes via NLTK sentence and word tokenizers, together with iterations of BaseTokenizer bigram contraction
-
+    Base class for all textmap tokenizers inherit from.
+    
       Parameters
       ----------
       collocation_score_function = nltk.metrics.BigramAssocMeasures (default likelihood_ratio)
