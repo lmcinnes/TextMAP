@@ -17,12 +17,6 @@ try:
 except ImportError:
     warn("The SpaCy library could not be imported SpaCyTokenizer will not be available.")
 
-try:
-    import en_core_web_sm
-except ImportError:
-    warn("The default SpaCy English model is not installed. The default tokenizer in SpaCyTokenizer "
-         "will not be available. To install the model run `python -m spacy download en_core_web_sm`"
-    )
 
 class BaseTokenizer(BaseEstimator, TransformerMixin):
     """
@@ -414,7 +408,7 @@ class SpaCyTokenizer(BaseTokenizer):
     def nlp(self, model):
         if model == "DEFAULT":
             # A default spaCy NLP pipeline
-            BASIC_SPACY_PIPELINE = en_core_web_sm.load()
+            BASIC_SPACY_PIPELINE = spacy.lang.en.English()
             BASIC_SPACY_PIPELINE.add_pipe(
                 BASIC_SPACY_PIPELINE.create_pipe("sentencizer"),
                 first=True

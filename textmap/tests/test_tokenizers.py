@@ -1,7 +1,7 @@
 import pytest
 
 import spacy
-import en_core_web_sm
+from spacy.lang.en import English
 
 from textmap.vectorizers import DocVectorizer
 from textmap.tokenizers import SpaCyTokenizer
@@ -14,11 +14,10 @@ def test_spacy_tokenizer():
     result = vectorizer.fit(test_text)
 
 def test_spacy_add_sentencizer():
-    nlp = en_core_web_sm.load()
+    nlp = English()
     # Remove all of the components
-    nlp.remove_pipe("tagger")
-    nlp.remove_pipe("parser")
-    nlp.remove_pipe("ner")
+    for p in nlp.pipe_names:
+        nlp.remove_pipe(p)
 
     tokenizer = SpaCyTokenizer(nlp=nlp)
 
