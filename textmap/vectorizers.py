@@ -2,7 +2,7 @@ from vectorizers import NgramVectorizer
 from sklearn.base import BaseEstimator, TransformerMixin
 from vectorizers._vectorizers import preprocess_token_sequences
 from .tranformers import InformationWeightTransformer, RemoveEffectsTransformer
-from .tokenizers import NLTKTokenizer
+from .tokenizers import NLTKTokenizer, BaseTokenizer
 
 
 class WordVectorizer(BaseEstimator, TransformerMixin):
@@ -77,6 +77,20 @@ class DocVectorizer(BaseEstimator, TransformerMixin):
         # up the docstring help.
         self.info_weight_transformer = info_weight_transformer
         self.remove_effects_transformer = remove_effects_transformer
+
+    @property
+    def tokenizer(self):
+        return self._tokenizer
+
+    @tokenizer.setter
+    def tokenizer(self, value):
+        if isinstance(value, BaseTokenizer):
+            self._tokenizer = value
+        else:
+            raise TypeError('Tokenizer is not an instance of textmap.tokenizers.BaseTokenizer. '
+                            'Did you forget to instantiate the tokenizer?'
+            )
+            
 
     def fit(self, X, y=None, **fit_params):
         """
