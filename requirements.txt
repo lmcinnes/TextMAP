@@ -7,3 +7,4 @@ pynndescent
 umap-learn
 hdbscan
 enstop
+spacy

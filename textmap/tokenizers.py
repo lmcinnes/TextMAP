@@ -397,15 +397,32 @@ class SpaCyTokenizer(BaseTokenizer):
             min_collocation_score=min_collocation_score,
         )
 
-        if nlp == "DEFAULT":
+        self.nlp = nlp
+
+
+    @property
+    def nlp(self):
+        return self._nlp
+
+    @nlp.setter
+    def nlp(self, model):
+        if model == "DEFAULT":
             # A default spaCy NLP pipeline
             BASIC_SPACY_PIPELINE = spacy.lang.en.English()
             BASIC_SPACY_PIPELINE.add_pipe(
-                BASIC_SPACY_PIPELINE.create_pipe("sentencizer")
+                BASIC_SPACY_PIPELINE.create_pipe("sentencizer"),
+                first=True
             )
-            self.nlp = BASIC_SPACY_PIPELINE
+            self._nlp = BASIC_SPACY_PIPELINE
         else:
-            self.nlp = nlp
+            # Check that the required components are there
+            if "sentencizer" not in model.pipe_names:
+                try:
+                    model.add_pipe(model.create_pipe("sentencizer"), first=True)
+                except KeyError:
+                    raise ValueError("NLP model does not have a sentencizer pipe.")
+
+            self._nlp = model
 
     def fit(self, X, **fit_params):
         """
