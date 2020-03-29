@@ -161,7 +161,7 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
 
         self.fit(X, **fit_params)
         result = info_weight_matrix(
-            X, self.model_.embedding_, self.model_.components_, self.expected_lengths_
+            X, self.model_.embedding_, self.model_.components_, self.tokens_per_doc_
         )
 
         return result
