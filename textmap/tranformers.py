@@ -4,6 +4,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
 import enstop
 
+EPS = 1e-11
 
 @numba.njit()
 def numba_info_weight_matrix(
@@ -25,7 +26,7 @@ def numba_info_weight_matrix(
         i = row[idx]
         j = col[idx]
 
-        info_weight = 0.0
+        info_weight = EPS
         for k in range(frequencies_i.shape[1]):
             col_prob = frequencies_j[k, j] * tokens_per_doc[k]
             if col_prob > 0.0:
