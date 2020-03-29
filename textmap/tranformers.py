@@ -6,39 +6,46 @@ import enstop
 
 
 @numba.njit()
-def numba_info_weight_matrix(row, col, val, frequencies_i, frequencies_j):
-    n_rows = np.max(row)
-    nnz = val.shape[0]
+def numba_info_weight_matrix(
+    row, col, val, frequencies_i, frequencies_j, tokens_per_doc
+):
+    """
 
-    expected_entropy = -np.log(n_rows / nnz)
+    For a given rank 1 model frequencies_j[k], the P(token_j in document) = P(token_j) * #(tokens per document[k]).
+    The information weight Info_k(token_j) = -log_2(P(token_j in document)). For a given document_i described as a
+    distribution of frequencies_i[i] over k latent rank 1 models frequencies_j, the information weight of the token_j in
+    document_i is the expected information weight \sum_k frequencies[i,k] Info_k(token_j). In the case k=1 and
+    frequencies_j is the distribution of unique tokens in documents, this is the idf weight -log_2(P(token_j in doc)).
+
+    The function returns the coo matrix (row, col, val) scaled by the information weight as calculated above.
+
+    """
 
     for idx in range(row.shape[0]):
         i = row[idx]
         j = col[idx]
-        prob = 0.0
+
+        info_weight = 0.0
         for k in range(frequencies_i.shape[1]):
-            prob += frequencies_i[i, k] * frequencies_j[k, j]
-
-        if prob > 0.0:
-            # I'm suspect of this... it does weird things to small examples
-            # info_weight = max(0.0, -np.log(prob) - expected_entropy)  # * nnz / n_rows)
-
-            info_weight = max(0.0, -np.log(prob))  # * nnz / n_rows)
-        else:
-            info_weight = -np.log(
-                1.0 / n_rows
-            )  # it's unclear to me why this is a good default value in this case
+            col_prob = frequencies_j[k, j] * tokens_per_doc[k]
+            if col_prob > 0.0:
+                info_weight += -frequencies_i[i, k] * np.log2(col_prob)
 
         val[idx] = val[idx] * info_weight
 
     return val
 
 
-def info_weight_matrix(matrix, frequencies_i, frequencies_j):
+def info_weight_matrix(matrix, frequencies_i, frequencies_j, tokens_per_doc):
     result = matrix.tocoo().copy()
 
     new_data = numba_info_weight_matrix(
-        result.row, result.col, result.data, frequencies_i, frequencies_j
+        result.row,
+        result.col,
+        result.data,
+        frequencies_i,
+        frequencies_j,
+        tokens_per_doc,
     )
     result.data = new_data
 
@@ -94,6 +101,11 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
             ).fit(binary_indicator_matrix)
         else:
             raise ValueError("model_type is not supported")
+        token_counts = np.array(binary_indicator_matrix.sum(axis=1))
+        self.tokens_per_doc_ = (
+            token_counts.T.dot(self.model_.embedding_)[0]
+            / self.model_.embedding_.shape[0]
+        )
 
         return self
 
@@ -119,7 +131,9 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
 
         check_is_fitted(self, ["model_"])
         embedding_ = self.model_.transform((X != 0).astype(np.float32))
-        result = info_weight_matrix(X, embedding_, self.model_.components_)
+        result = info_weight_matrix(
+            X, embedding_, self.model_.components_, self.tokens_per_doc_
+        )
 
         return result
 
@@ -146,7 +160,9 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
         """
 
         self.fit(X, **fit_params)
-        result = info_weight_matrix(X, self.model_.embedding_, self.model_.components_)
+        result = info_weight_matrix(
+            X, self.model_.embedding_, self.model_.components_, self.expected_lengths_
+        )
 
         return result
 
@@ -373,4 +389,3 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
         )
         self.mix_weights_ = weights
         return result
-
