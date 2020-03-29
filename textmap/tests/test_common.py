@@ -20,9 +20,9 @@ nltk.download('punkt')
 #     return check_estimator(Estimator)
 
 test_text = [
-    "foo bar pok wer pok pok foo bar wer qwe pok asd fgh",
-    "fgh asd foo pok qwe pok wer pok foo bar pok pok wer",
-    "pok wer pok qwe foo asd foo bar pok wer asd wer pok",
+    "aaa foo bar pok wer pok pok foo bar wer qwe pok asd fgh",
+    "bbb fgh asd foo pok qwe pok wer pok foo bar pok pok wer",
+    "ccc pok wer pok qwe foo asd foo bar pok wer asd wer pok",
 ]
 
 def test_docvectorizer_basic():
