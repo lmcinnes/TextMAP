@@ -106,7 +106,7 @@ class DocVectorizer(BaseEstimator, TransformerMixin):
         self
         """
         self.tokenizer.fit(X)
-        tokens_by_doc = self.tokenizer.tokens_by_doc()
+        tokens_by_doc = self.tokenizer.tokenization_
         self.representation_ = self.ngram_vectorizer.fit_transform(tokens_by_doc)
         if self.info_weight_transformer is not None:
             self.representation_ = self.info_weight_transformer.fit_transform(
@@ -152,7 +152,7 @@ class DocVectorizer(BaseEstimator, TransformerMixin):
 
         """
         self.tokenizer.fit(X)
-        tokens_by_doc = self.tokenizer.tokens_by_doc()
+        tokens_by_doc = self.tokenizer.tokenization_
         token_counts = self.ngram_vectorizer.transform(tokens_by_doc)
         if self.info_weight_transformer is not None:
             token_counts = self.info_weight_transformer.transform(token_counts)
