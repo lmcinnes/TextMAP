@@ -1,3 +1,10 @@
 numpy
 scipy
 scikit-learn
+pandas
+nltk
+pynndescent
+umap-learn
+hdbscan
+enstop
+spacy
