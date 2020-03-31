@@ -2,7 +2,7 @@ import pytest
 
 import spacy
 from spacy.lang.en import English
-import stanza
+# import stanza
 
 from textmap.tokenizers import (
     SpaCyTokenizer,
