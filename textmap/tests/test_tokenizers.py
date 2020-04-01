@@ -2,6 +2,7 @@ import pytest
 
 import spacy
 from spacy.lang.en import English
+
 # import stanza
 
 from textmap.tokenizers import (
@@ -12,26 +13,39 @@ from textmap.tokenizers import (
     StanzaTokenizer,
 )
 from .test_common import test_text
+from textmap.tranformers import MWETransformer
 
 
 def test_sklearn_tokenizer():
     for tokens_by in ["document", "sentence"]:
-        tokenizer = SKLearnTokenizer(tokenize_by=tokens_by).fit(test_text)
+        for lower in [True, False]:
+            tokenizer = SKLearnTokenizer(tokenize_by=tokens_by, lower_case=lower).fit(
+                test_text
+            )
 
 
 def test_nltk_tokenizer():
     for tokens_by in ["document", "sentence"]:
-        tokenizer = NLTKTokenizer(tokenize_by=tokens_by).fit(test_text)
+        for lower in [True, False]:
+            tokenizer = NLTKTokenizer(tokenize_by=tokens_by, lower_case=lower).fit(
+                test_text
+            )
 
 
 def test_tweet_tokenizer():
     for tokens_by in ["document", "sentence"]:
-        tokenizer = NLTKTweetTokenizer(tokenize_by=tokens_by).fit(test_text)
+        for lower in [True, False]:
+            tokenizer = NLTKTweetTokenizer(tokenize_by=tokens_by, lower_case=lower).fit(
+                test_text
+            )
 
 
 def test_spacy_tokenizer():
     for tokens_by in ["document", "sentence"]:
-        tokenizer = SpaCyTokenizer(tokenize_by=tokens_by).fit(test_text)
+        for lower in [True, False]:
+            tokenizer = SpaCyTokenizer(tokenize_by=tokens_by, lower_case=lower).fit(
+                test_text
+            )
 
 
 def test_spacy_add_sentencizer():
@@ -49,7 +63,8 @@ def test_spacy_remove_sentencizer():
     tokenizer = SpaCyTokenizer(tokenize_by="document", nlp=nlp)
     assert not ("sentencizer" in tokenizer.nlp.pipe_names)
 
-'''
+
+"""
 
 Stanza requires PyTorch which isn't behaving well in the github testing (the tests did pass locally though)  
 
@@ -70,4 +85,17 @@ def test_stanza_remove_sentencizer():
     nlp = stanza.Pipeline(processors="tokenize", tokenize_no_ssplit=False)
     tokenizer = StanzaTokenizer(tokenize_by="document", nlp=nlp)
     assert tokenizer.nlp.config["tokenize_no_ssplit"]
-'''
+"""
+
+
+def test_mwe_transformer():
+    tokens = SKLearnTokenizer().fit(test_text)
+    for min_w in [None, 1]:
+        for max_w in [None, 1]:
+            for min_gram in [None, 1]:
+                test = MWETransformer(
+                    min_score=0,
+                    min_word_occurrences=min_w,
+                    max_word_occurrences=max_w,
+                    min_ngram_occurrences=min_gram,
+                )

@@ -3,8 +3,13 @@ import numba
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
 import enstop
+from nltk.collocations import BigramCollocationFinder
+from nltk.metrics import BigramAssocMeasures
+from nltk.tokenize import MWETokenizer
+
 
 EPS = 1e-11
+
 
 @numba.njit()
 def numba_info_weight_matrix(
@@ -390,3 +395,80 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
         )
         self.mix_weights_ = weights
         return result
+
+
+class MWETransformer(BaseEstimator, TransformerMixin):
+    '''
+    The transformer takes sequences of tokens and contracts bigrams meeting certain criteria set out by the parameters.
+    This is repeated max_iterations times on the previously contracted text to (potentially) contract higher ngrams.
+
+    Parameters
+    ----------
+    score_function = nltk.BigramAssocMeasures function (default = likelihood ratio)
+        The function to score the bigrams of tokens.
+
+    max_iterations = int (default = 2)
+        The maximum number of times to iteratively contact bigrams or tokens.
+
+    min_score = int (default = 128)
+        The minimal score to contract an ngram.
+
+    min_word_occurrences = int (default = None)
+        If not None, the minimal number of occurrences of a token to be in a contracted ngram.
+
+    max_word_occurrences = int (default = None)
+        If not None, the minimal number of occurrences of a token to be in a contracted ngram.
+
+    min_ngram_occurrences = int (default = None)
+        If not None, the minimal number of occurrences of an ngram to be contracted.
+
+    '''
+
+    def __init__(
+        self,
+        score_function=BigramAssocMeasures.likelihood_ratio,
+        max_iterations=2,
+        min_score=2 ** 7,
+        min_word_occurrences=None,
+        max_word_occurrences=None,
+        min_ngram_occurrences=None,
+    ):
+
+        self.score_function = score_function
+        self.max_iterations = max_iterations
+        self.min_score = min_score
+        self.min_word_occurrences = min_word_occurrences
+        self.max_word_occurrences = max_word_occurrences
+        self.min_ngram_occurrences = min_ngram_occurrences
+        self.mles_ = list([])
+
+    def fit(self, X, **fit_params):
+        """
+        Procedure to iteratively contract bigrams (up to max_collocation_iterations times)
+        that score higher on the collocation_function than the min_collocation_score
+        """
+        for i in range(self.max_iterations):
+            self.tokenization_ = X
+            bigramer = BigramCollocationFinder.from_documents(self.tokenization_)
+            if not self.min_word_occurrences == None:
+                minfreq_fn = lambda w: bigramer.word_fd[w] < self.min_word_occurrences
+                bigramer.apply_word_filter(minfreq_fn)
+            if not self.max_word_occurrences == None:
+                maxfreq_fn = lambda w: bigramer.word_fd[w] > self.max_word_occurrences
+                bigramer.apply_word_filter(maxfreq_fn)
+            if not self.min_ngram_occurrences == None:
+                bigramer.apply_freq_filter(self.min_ngram_occurrences)
+            self.mwes_.extend(
+                list(bigramer.above_score(self.score_function, self.min_score))
+            )
+            if len(self.mwes_) == 0:
+                break
+            contracter = MWETokenizer(self.mwes_)
+            self.tokenization_ = [
+                contracter.tokenize(doc) for doc in self.tokenization_
+            ]
+        return self
+
+    def fit_transform(self, X, y=None, **fit_params):
+        self.fit(X)
+        return self.tokenization_
