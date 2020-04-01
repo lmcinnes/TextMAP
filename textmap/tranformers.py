@@ -398,7 +398,7 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
 
 
 class MWETransformer(BaseEstimator, TransformerMixin):
-    '''
+    """
     The transformer takes sequences of tokens and contracts bigrams meeting certain criteria set out by the parameters.
     This is repeated max_iterations times on the previously contracted text to (potentially) contract higher ngrams.
 
@@ -422,39 +422,40 @@ class MWETransformer(BaseEstimator, TransformerMixin):
     min_ngram_occurrences = int (default = None)
         If not None, the minimal number of occurrences of an ngram to be contracted.
 
-    '''
+    """
 
     def __init__(
         self,
         score_function=BigramAssocMeasures.likelihood_ratio,
         max_iterations=2,
         min_score=2 ** 7,
-        min_word_occurrences=None,
-        max_word_occurrences=None,
+        min_token_occurrences=None,
+        max_token_occurrences=None,
         min_ngram_occurrences=None,
     ):
 
         self.score_function = score_function
         self.max_iterations = max_iterations
         self.min_score = min_score
-        self.min_word_occurrences = min_word_occurrences
-        self.max_word_occurrences = max_word_occurrences
+        self.min_token_occurrences = min_token_occurrences
+        self.max_token_occurrences = max_token_occurrences
         self.min_ngram_occurrences = min_ngram_occurrences
-        self.mles_ = list([])
+        self.mwes_ = list([])
 
     def fit(self, X, **fit_params):
         """
         Procedure to iteratively contract bigrams (up to max_collocation_iterations times)
-        that score higher on the collocation_function than the min_collocation_score
+        that score higher on the collocation_function than the min_collocation_score (and satisfy other
+        criteria set out by the optional parameters).
         """
         for i in range(self.max_iterations):
             self.tokenization_ = X
             bigramer = BigramCollocationFinder.from_documents(self.tokenization_)
-            if not self.min_word_occurrences == None:
-                minfreq_fn = lambda w: bigramer.word_fd[w] < self.min_word_occurrences
+            if not self.min_token_occurrences == None:
+                minfreq_fn = lambda w: bigramer.word_fd[w] < self.min_token_occurrences
                 bigramer.apply_word_filter(minfreq_fn)
-            if not self.max_word_occurrences == None:
-                maxfreq_fn = lambda w: bigramer.word_fd[w] > self.max_word_occurrences
+            if not self.max_token_occurrences == None:
+                maxfreq_fn = lambda w: bigramer.word_fd[w] > self.max_token_occurrences
                 bigramer.apply_word_filter(maxfreq_fn)
             if not self.min_ngram_occurrences == None:
                 bigramer.apply_freq_filter(self.min_ngram_occurrences)

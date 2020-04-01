@@ -16,36 +16,36 @@ from .test_common import test_text
 from textmap.tranformers import MWETransformer
 
 
-def test_sklearn_tokenizer():
-    for tokens_by in ["document", "sentence"]:
-        for lower in [True, False]:
-            tokenizer = SKLearnTokenizer(tokenize_by=tokens_by, lower_case=lower).fit(
-                test_text
-            )
+@pytest.mark.parametrize("tokens_by", ["document", "sentence"])
+@pytest.mark.parametrize("lower_case", [True, False])
+def test_sklearn_tokenizer(tokens_by, lower_case):
+    tokenizer = SKLearnTokenizer(tokenize_by=tokens_by, lower_case=lower_case).fit(
+        test_text
+    )
 
 
-def test_nltk_tokenizer():
-    for tokens_by in ["document", "sentence"]:
-        for lower in [True, False]:
-            tokenizer = NLTKTokenizer(tokenize_by=tokens_by, lower_case=lower).fit(
-                test_text
-            )
+@pytest.mark.parametrize("tokens_by", ["document", "sentence"])
+@pytest.mark.parametrize("lower_case", [True, False])
+def test_nltk_tokenizer(tokens_by, lower_case):
+    tokenizer = NLTKTokenizer(tokenize_by=tokens_by, lower_case=lower_case).fit(
+        test_text
+    )
 
 
-def test_tweet_tokenizer():
-    for tokens_by in ["document", "sentence"]:
-        for lower in [True, False]:
-            tokenizer = NLTKTweetTokenizer(tokenize_by=tokens_by, lower_case=lower).fit(
-                test_text
-            )
+@pytest.mark.parametrize("tokens_by", ["document", "sentence"])
+@pytest.mark.parametrize("lower_case", [True, False])
+def test_tweet_tokenizer(tokens_by, lower_case):
+    tokenizer = NLTKTweetTokenizer(tokenize_by=tokens_by, lower_case=lower_case).fit(
+        test_text
+    )
 
 
-def test_spacy_tokenizer():
-    for tokens_by in ["document", "sentence"]:
-        for lower in [True, False]:
-            tokenizer = SpaCyTokenizer(tokenize_by=tokens_by, lower_case=lower).fit(
-                test_text
-            )
+@pytest.mark.parametrize("tokens_by", ["document", "sentence"])
+@pytest.mark.parametrize("lower_case", [True, False])
+def test_spacy_tokenizer(tokens_by, lower_case):
+    tokenizer = SpaCyTokenizer(tokenize_by=tokens_by, lower_case=lower_case).fit(
+        test_text
+    )
 
 
 def test_spacy_add_sentencizer():
@@ -88,14 +88,17 @@ def test_stanza_remove_sentencizer():
 """
 
 
-def test_mwe_transformer():
-    tokens = SKLearnTokenizer().fit(test_text)
-    for min_w in [None, 1]:
-        for max_w in [None, 1]:
-            for min_gram in [None, 1]:
-                test = MWETransformer(
-                    min_score=0,
-                    min_word_occurrences=min_w,
-                    max_word_occurrences=max_w,
-                    min_ngram_occurrences=min_gram,
-                )
+@pytest.mark.parametrize("min_score", [0, 3])
+@pytest.mark.parametrize("min_token_occurrences", [None, 3])
+@pytest.mark.parametrize("max_token_occurrences", [None, 6])
+@pytest.mark.parametrize("min_ngram_occurrences", [None, 3])
+def test_mwe_transformer(
+    min_score, min_token_occurrences, max_token_occurrences, min_ngram_occurrences
+):
+    tokens = SKLearnTokenizer().fit_transform(test_text)
+    test = MWETransformer(
+        min_score=min_score,
+        min_token_occurrences=min_token_occurrences,
+        max_token_occurrences=max_token_occurrences,
+        min_ngram_occurrences=min_ngram_occurrences,
+    ).fit_transform(tokens)

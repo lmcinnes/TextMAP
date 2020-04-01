@@ -1,4 +1,4 @@
-from .utilities import flatten
+from .utilities import flatten_list
 from warnings import warn
 
 from sklearn.base import BaseEstimator, TransformerMixin
@@ -138,12 +138,14 @@ class NLTKTokenizer(BaseTokenizer):
             tokenize = lambda d: self.nlp.tokenize(d)
 
         if self.tokenize_by == "sentence":
-            self.tokenization_ = flatten(
+            self.tokenization_ = flatten_list(
                 [[tokenize(sent) for sent in sent_tokenize(doc)] for doc in X]
             )
-        else:
-            self.tokenization_ = [tokenize(doc) for doc in X]
 
+        elif self.tokenize_by == "document":
+            self.tokenization_ = [tokenize(doc) for doc in X]
+        else:
+            raise ValueError('tokenize_by parameter must be "document" or "sentence"')
         return self
 
 
@@ -232,11 +234,15 @@ class SKLearnTokenizer(BaseTokenizer):
         """
 
         if self.tokenize_by == "sentence":
-            self.tokenization_ = flatten(
+            self.tokenization_ = flatten_list(
                 [[self.nlp(sent) for sent in sent_tokenize(doc)] for doc in X]
             )
-        else:
+
+        elif self.tokenize_by == "document":
             self.tokenization_ = [self.nlp(doc) for doc in X]
+
+        else:
+            raise ValueError("tokenize_by parameter must be 'document' or 'sentence'")
 
         return self
 
@@ -303,36 +309,28 @@ class StanzaTokenizer(BaseTokenizer):
         self
         """
 
-        if self.tokenize_by == "sentence":
-            if self.lower_case:
-                self.tokenization_ = [
-                    [
-                        [(token.text).lower() for token in sent.tokens]
-                        for sent in self.nlp(doc).sentences
-                    ]
-                    for doc in X
-                ]
-            else:
-                self.tokenization_ = [
-                    [
-                        [token.text for token in sent.tokens]
-                        for sent in self.nlp(doc).sentences
-                    ]
-                    for doc in X
-                ]
+        if self.lower_case:
+            token_text = lambda t: (t.text).lower()
         else:
-            if self.lower_case:
-                self.tokenization_ = flatten(
-                    [
-                        [(token.text).lower() for token in self.nlp(doc).iter_tokens()]
-                        for doc in X
-                    ]
-                )
-            else:
-                self.tokenization_ = flatten(
-                    [[token.text for token in self.nlp(doc).iter_tokens()] for doc in X]
-                )
+            token_text = lambda t: t.text
 
+        if self.tokenize_by == "sentence":
+            self.tokenization_ = flatten_list(
+                [
+                    [
+                        [token_text(token) for token in sent.tokens]
+                        for sent in self.nlp(doc).sentences
+                    ]
+                    for doc in X
+                ]
+            )
+        elif self.tokenize_by == "document":
+            self.tokenization_ = [
+                [token_text(token) for token in self.nlp(doc).iter_tokens()]
+                for doc in X
+            ]
+        else:
+            raise ValueError("tokenize_by parameter must be 'document' or 'sentence'")
         return self
 
 
@@ -398,18 +396,23 @@ class SpaCyTokenizer(BaseTokenizer):
         """
 
         if self.lower_case:
-            token_text = lambda t: t.lower
+            token_text = lambda t: t.lower_
         else:
             token_text = lambda t: t.text
 
         if self.tokenize_by == "sentence":
+            self.tokenization_ = flatten_list(
+                [
+                    [[token_text(token) for token in sent] for sent in doc.sents]
+                    for doc in self.nlp.pipe(X)
+                ]
+            )
+
+        elif self.tokenize_by == "document":
             self.tokenization_ = [
-                [[token_text(token) for token in sent] for sent in doc.sents]
-                for doc in self.nlp.pipe(X)
+                [token_text(token) for token in doc] for doc in self.nlp.pipe(X)
             ]
         else:
-            self.tokenization_ = flatten(
-                [[token_text(token) for token in doc] for doc in self.nlp.pipe(X)]
-            )
+            raise ValueError("tokenize_by parameter must be 'document' or 'sentence'")
 
         return self
