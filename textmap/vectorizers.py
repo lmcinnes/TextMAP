@@ -29,7 +29,7 @@ class WordVectorizer(BaseEstimator, TransformerMixin):
     def fit(self, X, y=None, **fit_params):
         # use tokenizer to build list of the sentences in the corpus
         # Word vectorizers are document agnostic.
-        tokens_by_sentence = flatten(self.tokenizer.fit_transform(X))
+        tokens_by_sentence = self.tokenizer.fit_transform(X)
         # Sparse matrix of tokens occuring BEFORE our token in the sequence
         # This requires TokenCooccurrenceVectorize to have symmetrize = False
         # TODO: Should we check for that?
