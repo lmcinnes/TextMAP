@@ -6,7 +6,7 @@ import enstop
 from nltk.collocations import BigramCollocationFinder
 from nltk.metrics import BigramAssocMeasures
 from nltk.tokenize import MWETokenizer
-
+import re
 
 EPS = 1e-11
 
@@ -422,6 +422,12 @@ class MWETransformer(BaseEstimator, TransformerMixin):
     min_ngram_occurrences = int (default = None)
         If not None, the minimal number of occurrences of an ngram to be contracted.
 
+    include_regex = str (default = None)
+        Only contra bigrams where both of the tokens fully match the regular expression
+
+    exclude_regex = str (default = r\"\W+\")
+        Do not contract bigrams when either of the tokens fully matches the regular expression
+
     """
 
     def __init__(
@@ -432,6 +438,8 @@ class MWETransformer(BaseEstimator, TransformerMixin):
         min_token_occurrences=None,
         max_token_occurrences=None,
         min_ngram_occurrences=None,
+        include_regex = None,
+        exclude_regex = r"\W+"
     ):
 
         self.score_function = score_function
@@ -440,6 +448,8 @@ class MWETransformer(BaseEstimator, TransformerMixin):
         self.min_token_occurrences = min_token_occurrences
         self.max_token_occurrences = max_token_occurrences
         self.min_ngram_occurrences = min_ngram_occurrences
+        self.include_regex = include_regex
+        self.exclude_regex = exclude_regex
         self.mwes_ = list([])
 
     def fit(self, X, **fit_params):
@@ -451,6 +461,12 @@ class MWETransformer(BaseEstimator, TransformerMixin):
         for i in range(self.max_iterations):
             self.tokenization_ = X
             bigramer = BigramCollocationFinder.from_documents(self.tokenization_)
+            if not self.include_regex == None:
+                include_re_fn = lambda w: re.fullmatch(self.include_regex, w) == None
+                bigramer.apply_word_filter(include_re_fn)
+            if not self.exclude_regex == None:
+                exclude_re_fn = lambda w: re.fullmatch(self.exclude_regex, w) != None
+                bigramer.apply_word_filter(exclude_re_fn)
             if not self.min_token_occurrences == None:
                 minfreq_fn = lambda w: bigramer.word_fd[w] < self.min_token_occurrences
                 bigramer.apply_word_filter(minfreq_fn)
