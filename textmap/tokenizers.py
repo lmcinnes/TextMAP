@@ -1,10 +1,9 @@
-from .utilities import flatten
+from .utilities import flatten_list
 from warnings import warn
 
 from sklearn.base import BaseEstimator, TransformerMixin
-from nltk.tokenize import sent_tokenize, word_tokenize, MWETokenizer, TweetTokenizer
-from nltk.collocations import BigramCollocationFinder
-from nltk.metrics import BigramAssocMeasures
+from nltk.tokenize import sent_tokenize, word_tokenize, TweetTokenizer
+import nltk.tokenize.api
 from sklearn.feature_extraction.text import CountVectorizer
 
 # Optional tokenization packages
@@ -32,34 +31,31 @@ class BaseTokenizer(BaseEstimator, TransformerMixin):
       tokenize_by = 'document' (default) or 'sentence'
         Return a list of lists of tokens per document or a list of lists of lists of tokens per sentence per document
 
-      collocation_score_function = nltk.metrics.BigramAssocMeasures (default likelihood_ratio)
-        The function to score bigrams
+      nlp = None or a tokenizer class
+        If nlp = None then a default tokenizer will be constructed.  Otherwise the one provided will be used.
 
-      max_collocation_iterations = int (default = 2)
-        The maximal number of recursive bigram contractions
-
-      min_collocation_score: int (default = 12)
-        The minimal score value to contract a bigram per iteration
+      lower_case = bool (default = True)
+        Apply str.lower() to the tokens upon tokenization
 
     """
 
-    def __init__(
-        self,
-        tokenize_by="document",
-        collocation_score_function=BigramAssocMeasures.likelihood_ratio,
-        max_collocation_iterations=2,
-        min_collocation_score=12,
-    ):
+    def __init__(self, tokenize_by="document", nlp="default", lower_case=True):
         try:
             assert tokenize_by in ["document", "sentence"]
             self.tokenize_by = tokenize_by
         except AssertionError:
             raise ValueError("tokenize_by parameter must be 'document' or 'sentence'")
-
-        self.collocation_score_function = collocation_score_function
-        self.max_collocation_iterations = max_collocation_iterations
-        self.min_collocation_score = min_collocation_score
         self.tokenization_ = None
+        self.lower_case = lower_case
+        self.nlp = nlp
+
+    @property
+    def nlp(self):
+        return self._nlp
+
+    @nlp.setter
+    def nlp(self, model):
+        self._nlp = model
 
     def fit(self, X, **fit_params):
         """
@@ -73,6 +69,7 @@ class BaseTokenizer(BaseEstimator, TransformerMixin):
         -------
         self
         """
+
         self.tokenization_ = None
         return self
 
@@ -86,89 +83,41 @@ class BaseTokenizer(BaseEstimator, TransformerMixin):
 
         Returns
         -------
-        The list of lists of tokenized sentences per document
+        The list of tokenized documents or sentences
         """
+
         self.fit(X, **fit_params)
         return self.tokenization_
-
-    def iteratively_contract_bigrams(self):
-        """
-        Procedure to iteratively contract bigrams (up to max_collocation_iterations times)
-        that score higher on the collocation_function than the min_collocation_score
-        """
-        if self.tokenize_by == "document":
-            for i in range(self.max_collocation_iterations):
-                bigramer = BigramCollocationFinder.from_documents(self.tokenization_)
-                mwes = list(
-                    bigramer.above_score(
-                        self.collocation_score_function, self.min_collocation_score
-                    )
-                )
-                if len(mwes) == 0:
-                    break
-                contracter = MWETokenizer(mwes)
-                self.tokenization_ = [
-                    contracter.tokenize(doc) for doc in self.tokenization_
-                ]
-        else:
-            for i in range(self.max_collocation_iterations):
-                bigramer = BigramCollocationFinder.from_documents(
-                    flatten(self.tokenization_)
-                )
-                mwes = list(
-                    bigramer.above_score(
-                        self.collocation_score_function, self.min_collocation_score
-                    )
-                )
-                if len(mwes) == 0:
-                    break
-                contracter = MWETokenizer(mwes)
-                self.tokenization_ = [
-                    [contracter.tokenize(sent) for sent in doc]
-                    for doc in self.tokenization_
-                ]
 
 
 class NLTKTokenizer(BaseTokenizer):
     """
-    Tokenizes via NLTK sentence and word tokenizers, together with iterations of BaseTokenizer bigram contraction
+    Tokenizes via any NLTKTokenizer, using sent_tokenize and word_tokenize by default,
 
       Parameters
       ----------
       tokenize_by = 'document' (default) or 'sentence'
-        Return a list of lists of tokens per document or a list of lists of lists of tokens per sentence per document
+        Return a list of lists of tokens per document or a list of lists of tokens per sentence.
 
-      lower_case = bool (default = False)
-        Lower-case the sentences before tokenization.
+      nlp = 'default' or an NLTK style tokenizer
+        The default will tokenize via an NLTK tokenizer using NLTK's word_tokenize function.
 
-      collocation_score_function = nltk.metrics.BigramAssocMeasures (default likelihood_ratio)
-        The function to score bigrams
-
-      max_collocation_iterations = int (default = 2)
-        The maximal number of recursive bigram contractions
-
-      min_collocation_score: int (default = 12)
-        The minimal score value to contract a bigram per iteration
-
+      lower_case = bool (default = True)
+        Apply str.lower() to the tokens upon tokenization
     """
 
-    def __init__(
-        self,
-        tokenize_by="document",
-        lower_case=False,
-        collocation_score_function=BigramAssocMeasures.likelihood_ratio,
-        max_collocation_iterations=2,
-        min_collocation_score=12,
-    ):
-        BaseTokenizer.__init__(
-            self,
-            tokenize_by=tokenize_by,
-            collocation_score_function=collocation_score_function,
-            max_collocation_iterations=max_collocation_iterations,
-            min_collocation_score=min_collocation_score,
-        )
+    @property
+    def nlp(self):
+        return self._nlp
 
-        self.lower_case = lower_case
+    @nlp.setter
+    def nlp(self, model):
+        if model == "default":
+            model = nltk.tokenize.api.StringTokenizer()
+            model.tokenize = word_tokenize
+            self._nlp = model
+        else:
+            self._nlp = model
 
     def fit(self, X, **fit_params):
         """
@@ -182,128 +131,94 @@ class NLTKTokenizer(BaseTokenizer):
         -------
         self
         """
-        if self.tokenize_by == "sentence":
-            if self.lower_case:
-                self.tokenization_ = [
-                    [word_tokenize(sent.lower()) for sent in sent_tokenize(doc)]
-                    for doc in X
-                ]
-            else:
-                self.tokenization_ = [
-                    [word_tokenize(sent) for sent in sent_tokenize(doc)] for doc in X
-                ]
+
+        if self.lower_case:
+            tokenize = lambda d: [w.lower() for w in self.nlp.tokenize(d)]
         else:
-            if self.lower_case:
-                self.tokenization_ = [word_tokenize(doc.lower()) for doc in X]
-            else:
-                self.tokenization_ = [word_tokenize(doc) for doc in X]
+            tokenize = lambda d: self.nlp.tokenize(d)
 
-        self.iteratively_contract_bigrams()
+        if self.tokenize_by == "sentence":
+            self.tokenization_ = flatten_list(
+                [[tokenize(sent) for sent in sent_tokenize(doc)] for doc in X]
+            )
 
+        elif self.tokenize_by == "document":
+            self.tokenization_ = [tokenize(doc) for doc in X]
+        else:
+            raise ValueError('tokenize_by parameter must be "document" or "sentence"')
         return self
 
 
-class NLTKTweetTokenizer(BaseTokenizer):
+class NLTKTweetTokenizer(NLTKTokenizer):
     """
-    Tokenizes via NLTK TweetTokenizer and sent_tokenize, together with iterations of BaseTokenizer bigram contraction
+    A class to create an NLTKTokenizer using nltk.tokenize.TweetTokenizer
 
       Parameters
       ----------
       tokenize_by = 'document' (default) or 'sentence'
-        Return a list of lists of tokens per document or a list of lists of lists of tokens per sentence per document
+        Return a list of lists of tokens per document or a list of lists of tokens per sentence
 
-      lower_case = bool (default = False)
-        Lower-case the sentences after tokenization.
+      nlp = 'default' or an NLTKTokenizer
+        The default it will be the NLTK's TweetTokenizer with default settings
 
-      reduce_length = bool (default = False)
-        Replaces repeated characters of length greater than 3 with the sequence of length 3.
-
-      strip_handles = bool (defaul = False)
-        Removes twitter username handles from the text
-
-      collocation_score_function = nltk.metrics.BigramAssocMeasures (default likelihood_ratio)
-        The function to score bigrams
-
-      max_collocation_iterations = int (default = 2)
-        The maximal number of recursive bigram contractions
-
-      min_collocation_score: int (default = 12)
-        The minimal score value to contract a bigram per iteration
-
+      lower_case = bool (default = True)
+        Apply str.lower() to the tokens upon tokenization
     """
 
-    def __init__(
-        self,
-        tokenize_by="document",
-        lower_case=False,
-        reduce_length=False,
-        strip_handles=False,
-        collocation_score_function=BigramAssocMeasures.likelihood_ratio,
-        max_collocation_iterations=2,
-        min_collocation_score=12,
-    ):
-        BaseTokenizer.__init__(
-            self,
-            tokenize_by=tokenize_by,
-            collocation_score_function=collocation_score_function,
-            max_collocation_iterations=max_collocation_iterations,
-            min_collocation_score=min_collocation_score,
+    def __init__(self, tokenize_by="document", nlp="default", lower_case=True):
+        self.nlp = nlp
+        NLTKTokenizer.__init__(
+            self, tokenize_by=tokenize_by, nlp=self.nlp, lower_case=lower_case
         )
 
-        self.lower_case = lower_case
-        self.reduce_length = reduce_length
-        self.strip_handles = strip_handles
+    @property
+    def nlp(self):
+        return self._nlp
 
-    def fit(self, X, **fit_params):
-        """
-
-        Parameters
-        ----------
-        X: collection
-            The list of documents
-
-        Returns
-        -------
-        self
-        """
-        tweet_tokenize = TweetTokenizer(
-            preserve_case=not self.lower_case,
-            reduce_len=self.reduce_length,
-            strip_handles=self.strip_handles,
-        ).tokenize
-
-        if self.tokenize_by == "sentence":
-            self.tokenization_ = [
-                [tweet_tokenize(sent) for sent in sent_tokenize(doc)] for doc in X
-            ]
+    @nlp.setter
+    def nlp(self, model):
+        if model == "default":
+            model = TweetTokenizer(
+                preserve_case=True, reduce_len=False, strip_handles=False,
+            )
+            self._nlp = model
         else:
-            self.tokenization_ = [tweet_tokenize(doc) for doc in X]
-
-        self.iteratively_contract_bigrams()
-
-        return self
+            self._nlp = model
 
 
 class SKLearnTokenizer(BaseTokenizer):
     """
-    Uses CountVectorizers' document preprocessing and word tokenizer (NLTK sentence tokenizer if tokenizing by sentence)
+    A generic class that tokenizes via any tokenization function accepted in scikit-learn. By default it uses
+    CountVectorizer's default document preprocessing and word tokenizer
 
-    Note: This will lower case the text.
+    Note: It will use NLTK sentence tokenizer if tokenizing by sentence as there is no scikit-learn default.
 
     Parameters
     ----------
     tokenize_by = 'document' (default) or 'sentence'
-        Return a list of lists of tokens per document or a list of lists of lists of tokens per sentence per document
+        Return a list of lists of tokens per document or a list of lists of tokens per sentence
 
-    collocation_score_function = nltk.metrics.BigramAssocMeasures (default likelihood_ratio)
-      The function to score bigrams
+    nlp = 'default' or a function
+        This can be any function which takes in strings and returns a list of strings.  The default is the
+        scikit-learn's tokenization function used in CountVectorizer().
 
-    max_collocation_iterations = int (default = 2)
-      The maximal number of recursive bigram contractions
-
-    min_collocation_score: int (default = 12)
-      The minimal score value to contract a bigram per iteration
+    lower_case = bool (default = True)
+        Apply str.lower() to the tokens upon tokenization
     """
+
+    @property
+    def nlp(self):
+        return self._nlp
+
+    @nlp.setter
+    def nlp(self, model):
+        if model == "default":
+            cv = CountVectorizer(lowercase=self.lower_case)
+            sk_word_tokenize = cv.build_tokenizer()
+            sk_preprocesser = cv.build_preprocessor()
+            self._nlp = lambda doc: sk_word_tokenize(sk_preprocesser(doc))
+        else:
+            self._nlp = model
 
     def fit(self, X, **fit_params):
         """
@@ -317,17 +232,17 @@ class SKLearnTokenizer(BaseTokenizer):
         -------
         self
         """
-        sk_word_tokenize = CountVectorizer().build_tokenizer()
-        sk_preprocesser = CountVectorizer().build_preprocessor()
-        if self.tokenize_by == "sentence":
-            self.tokenization_ = [
-                [sk_word_tokenize(sent) for sent in sent_tokenize(sk_preprocesser(doc))]
-                for doc in X
-            ]
-        else:
-            self.tokenization_ = [sk_word_tokenize(sk_preprocesser(doc)) for doc in X]
 
-        self.iteratively_contract_bigrams()
+        if self.tokenize_by == "sentence":
+            self.tokenization_ = flatten_list(
+                [[self.nlp(sent) for sent in sent_tokenize(doc)] for doc in X]
+            )
+
+        elif self.tokenize_by == "document":
+            self.tokenization_ = [self.nlp(doc) for doc in X]
+
+        else:
+            raise ValueError("tokenize_by parameter must be 'document' or 'sentence'")
 
         return self
 
@@ -338,38 +253,14 @@ class StanzaTokenizer(BaseTokenizer):
     Parameters
     ----------
     tokenize_by = 'document' (default) or 'sentence'
-        Return a list of lists of tokens per document or a list of lists of lists of tokens per sentence per document
+        Return a list of lists of tokens per document or a list of lists of tokens per sentence
 
-    nlp = "DEFAULT" or a stanza.Pipeline
-      The stanza tokenizer
+    nlp = 'default' (default) or a stanza.Pipeline
+      The stanza tokenizer.  If None then a default one will be created.
 
-    collocation_score_function = nltk.metrics.BigramAssocMeasures (default likelihood_ratio)
-      The function to score bigrams
-
-    max_collocation_iterations = int (default = 2)
-      The maximal number of recursive bigram contractions
-
-    min_collocation_score: int (default = 12)
-      The minimal score value to contract a bigram per iteration
+    lower_case = bool (default = True)
+        Apply str.lower() to the tokens upon tokenization
     """
-
-    def __init__(
-        self,
-        nlp="DEFAULT",
-        tokenize_by="document",
-        collocation_score_function=BigramAssocMeasures.likelihood_ratio,
-        max_collocation_iterations=2,
-        min_collocation_score=12,
-    ):
-
-        BaseTokenizer.__init__(
-            self,
-            tokenize_by=tokenize_by,
-            collocation_score_function=collocation_score_function,
-            max_collocation_iterations=max_collocation_iterations,
-            min_collocation_score=min_collocation_score,
-        )
-        self.nlp = nlp
 
     @property
     def nlp(self):
@@ -377,7 +268,7 @@ class StanzaTokenizer(BaseTokenizer):
 
     @nlp.setter
     def nlp(self, model):
-        if model == "DEFAULT":
+        if model == "default":
             # A default Stanza NLP pipeline
             stanza.download(lang="en", processors="tokenize")
             if self.tokenize_by == "sentence":
@@ -417,21 +308,29 @@ class StanzaTokenizer(BaseTokenizer):
         -------
         self
         """
+
+        if self.lower_case:
+            token_text = lambda t: (t.text).lower()
+        else:
+            token_text = lambda t: t.text
+
         if self.tokenize_by == "sentence":
-            self.tokenization_ = [
+            self.tokenization_ = flatten_list(
                 [
-                    [token.text for token in sent.tokens]
-                    for sent in self.nlp(doc).sentences
+                    [
+                        [token_text(token) for token in sent.tokens]
+                        for sent in self.nlp(doc).sentences
+                    ]
+                    for doc in X
                 ]
+            )
+        elif self.tokenize_by == "document":
+            self.tokenization_ = [
+                [token_text(token) for token in self.nlp(doc).iter_tokens()]
                 for doc in X
             ]
         else:
-            self.tokenization_ = [
-                [token.text for token in self.nlp(doc).iter_tokens()] for doc in X
-            ]
-
-        self.iteratively_contract_bigrams()
-
+            raise ValueError("tokenize_by parameter must be 'document' or 'sentence'")
         return self
 
 
@@ -441,38 +340,14 @@ class SpaCyTokenizer(BaseTokenizer):
     Parameters
     ----------
     tokenize_by = 'document' (default) or 'sentence'
-        Return a list of lists of tokens per document or a list of lists of lists of tokens per sentence per document
+        Return a list of lists of tokens per document or a list of lists of tokens per sentence
 
-    nlp = "DEFAULT" or a spaCy pipeline
-      The spaCy tokenizer
+    nlp = 'default' or a spaCy pipeline
+      The spaCy tokenizer.  If None, a default one will be created.
 
-    collocation_score_function = nltk.metrics.BigramAssocMeasures (default likelihood_ratio)
-      The function to score bigrams
-
-    max_collocation_iterations = int (default = 2)
-      The maximal number of recursive bigram contractions
-
-    min_collocation_score: int (default = 12)
-      The minimal score value to contract a bigram per iteration
+    lower_case = bool (default = True)
+      Tokenizes as the token.text (if False) or token.lower (if True)
     """
-
-    def __init__(
-        self,
-        tokenize_by="document",
-        nlp="DEFAULT",
-        collocation_score_function=BigramAssocMeasures.likelihood_ratio,
-        max_collocation_iterations=2,
-        min_collocation_score=12,
-    ):
-        BaseTokenizer.__init__(
-            self,
-            tokenize_by=tokenize_by,
-            collocation_score_function=collocation_score_function,
-            max_collocation_iterations=max_collocation_iterations,
-            min_collocation_score=min_collocation_score,
-        )
-
-        self.nlp = nlp
 
     @property
     def nlp(self):
@@ -480,7 +355,7 @@ class SpaCyTokenizer(BaseTokenizer):
 
     @nlp.setter
     def nlp(self, model):
-        if model == "DEFAULT":
+        if model == "default":
             # A default spaCy NLP pipeline
             BASIC_SPACY_PIPELINE = spacy.lang.en.English()
             if self.tokenize_by == "sentence":
@@ -519,16 +394,25 @@ class SpaCyTokenizer(BaseTokenizer):
         -------
         self
         """
+
+        if self.lower_case:
+            token_text = lambda t: t.lower_
+        else:
+            token_text = lambda t: t.text
+
         if self.tokenize_by == "sentence":
+            self.tokenization_ = flatten_list(
+                [
+                    [[token_text(token) for token in sent] for sent in doc.sents]
+                    for doc in self.nlp.pipe(X)
+                ]
+            )
+
+        elif self.tokenize_by == "document":
             self.tokenization_ = [
-                [[token.text for token in sent] for sent in doc.sents]
-                for doc in self.nlp.pipe(X)
+                [token_text(token) for token in doc] for doc in self.nlp.pipe(X)
             ]
         else:
-            self.tokenization_ = [
-                [token.text for token in doc] for doc in self.nlp.pipe(X)
-            ]
-
-        self.iteratively_contract_bigrams()
+            raise ValueError("tokenize_by parameter must be 'document' or 'sentence'")
 
         return self

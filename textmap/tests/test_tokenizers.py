@@ -2,6 +2,7 @@ import pytest
 
 import spacy
 from spacy.lang.en import English
+
 # import stanza
 
 from textmap.tokenizers import (
@@ -12,26 +13,39 @@ from textmap.tokenizers import (
     StanzaTokenizer,
 )
 from .test_common import test_text
+from textmap.tranformers import MWETransformer
 
 
-def test_sklearn_tokenizer():
-    for tokens_by in ["document", "sentence"]:
-        tokenizer = SKLearnTokenizer(tokenize_by=tokens_by).fit(test_text)
+@pytest.mark.parametrize("tokens_by", ["document", "sentence"])
+@pytest.mark.parametrize("lower_case", [True, False])
+def test_sklearn_tokenizer(tokens_by, lower_case):
+    tokenizer = SKLearnTokenizer(tokenize_by=tokens_by, lower_case=lower_case).fit(
+        test_text
+    )
 
 
-def test_nltk_tokenizer():
-    for tokens_by in ["document", "sentence"]:
-        tokenizer = NLTKTokenizer(tokenize_by=tokens_by).fit(test_text)
+@pytest.mark.parametrize("tokens_by", ["document", "sentence"])
+@pytest.mark.parametrize("lower_case", [True, False])
+def test_nltk_tokenizer(tokens_by, lower_case):
+    tokenizer = NLTKTokenizer(tokenize_by=tokens_by, lower_case=lower_case).fit(
+        test_text
+    )
 
 
-def test_tweet_tokenizer():
-    for tokens_by in ["document", "sentence"]:
-        tokenizer = NLTKTweetTokenizer(tokenize_by=tokens_by).fit(test_text)
+@pytest.mark.parametrize("tokens_by", ["document", "sentence"])
+@pytest.mark.parametrize("lower_case", [True, False])
+def test_tweet_tokenizer(tokens_by, lower_case):
+    tokenizer = NLTKTweetTokenizer(tokenize_by=tokens_by, lower_case=lower_case).fit(
+        test_text
+    )
 
 
-def test_spacy_tokenizer():
-    for tokens_by in ["document", "sentence"]:
-        tokenizer = SpaCyTokenizer(tokenize_by=tokens_by).fit(test_text)
+@pytest.mark.parametrize("tokens_by", ["document", "sentence"])
+@pytest.mark.parametrize("lower_case", [True, False])
+def test_spacy_tokenizer(tokens_by, lower_case):
+    tokenizer = SpaCyTokenizer(tokenize_by=tokens_by, lower_case=lower_case).fit(
+        test_text
+    )
 
 
 def test_spacy_add_sentencizer():
@@ -49,7 +63,8 @@ def test_spacy_remove_sentencizer():
     tokenizer = SpaCyTokenizer(tokenize_by="document", nlp=nlp)
     assert not ("sentencizer" in tokenizer.nlp.pipe_names)
 
-'''
+
+"""
 
 Stanza requires PyTorch which isn't behaving well in the github testing (the tests did pass locally though)  
 
@@ -70,4 +85,20 @@ def test_stanza_remove_sentencizer():
     nlp = stanza.Pipeline(processors="tokenize", tokenize_no_ssplit=False)
     tokenizer = StanzaTokenizer(tokenize_by="document", nlp=nlp)
     assert tokenizer.nlp.config["tokenize_no_ssplit"]
-'''
+"""
+
+
+@pytest.mark.parametrize("min_score", [0, 3])
+@pytest.mark.parametrize("min_token_occurrences", [None, 3])
+@pytest.mark.parametrize("max_token_occurrences", [None, 6])
+@pytest.mark.parametrize("min_ngram_occurrences", [None, 3])
+def test_mwe_transformer(
+    min_score, min_token_occurrences, max_token_occurrences, min_ngram_occurrences
+):
+    tokens = SKLearnTokenizer().fit_transform(test_text)
+    test = MWETransformer(
+        min_score=min_score,
+        min_token_occurrences=min_token_occurrences,
+        max_token_occurrences=max_token_occurrences,
+        min_ngram_occurrences=min_ngram_occurrences,
+    ).fit_transform(tokens)
