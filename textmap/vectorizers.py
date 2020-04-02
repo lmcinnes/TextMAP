@@ -1,6 +1,6 @@
 from vectorizers import NgramVectorizer, TokenCooccurrenceVectorizer
 from sklearn.base import BaseEstimator, TransformerMixin
-from .tranformers import InformationWeightTransformer, RemoveEffectsTransformer
+from .transformers import InformationWeightTransformer, RemoveEffectsTransformer
 from .tokenizers import NLTKTokenizer, BaseTokenizer
 from scipy.sparse import hstack
 from sklearn.preprocessing import normalize

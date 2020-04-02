@@ -13,7 +13,7 @@ from textmap.tokenizers import (
     StanzaTokenizer,
 )
 from .test_common import test_text
-from textmap.tranformers import MultiTokenExpressionTransformer
+from textmap.transformers import MultiTokenExpressionTransformer
 
 
 @pytest.mark.parametrize("tokens_by", ["document", "sentence"])
