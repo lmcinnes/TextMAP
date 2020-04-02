@@ -458,8 +458,9 @@ class MultiTokenExpressionTransformer(BaseEstimator, TransformerMixin):
         that score higher on the collocation_function than the min_collocation_score (and satisfy other
         criteria set out by the optional parameters).
         """
+        self.tokenization_ = X
+
         for i in range(self.max_iterations):
-            self.tokenization_ = X
             bigramer = BigramCollocationFinder.from_documents(self.tokenization_)
 
             if not self.ignored_tokens == None:
@@ -494,6 +495,7 @@ class MultiTokenExpressionTransformer(BaseEstimator, TransformerMixin):
             self.tokenization_ = [
                 contracter.tokenize(doc) for doc in self.tokenization_
             ]
+
         return self
 
     def fit_transform(self, X, y=None, **fit_params):
