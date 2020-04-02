@@ -422,7 +422,7 @@ class MultiTokenExpressionTransformer(BaseEstimator, TransformerMixin):
     min_ngram_occurrences = int (default = None)
         If not None, the minimal number of occurrences of an ngram to be contracted.
 
-    ingnored_tokens = set (default = None)
+    ignored_tokens = set (default = None)
         Only contracts bigrams where both tokens are not in the ignored_tokens
 
     excluded_token_regex = str (default = r\"\W+\")
