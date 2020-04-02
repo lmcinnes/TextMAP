@@ -465,22 +465,31 @@ class MultiTokenExpressionTransformer(BaseEstimator, TransformerMixin):
             if not self.ignored_tokens == None:
                 ignore_fn = lambda w: w in self.ignored_tokens
                 bigramer.apply_word_filter(ignore_fn)
+
             if not self.excluded_token_regex == None:
-                exclude_re_fn = lambda w: re.fullmatch(self.excluded_token_regex, w) is not None
-                bigramer.apply_word_filter(exclude_re_fn)
+                exclude_fn = (
+                    lambda w: re.fullmatch(self.excluded_token_regex, w) is not None
+                )
+                bigramer.apply_word_filter(exclude_fn)
+
             if not self.min_token_occurrences == None:
                 minfreq_fn = lambda w: bigramer.word_fd[w] < self.min_token_occurrences
                 bigramer.apply_word_filter(minfreq_fn)
+
             if not self.max_token_occurrences == None:
                 maxfreq_fn = lambda w: bigramer.word_fd[w] > self.max_token_occurrences
                 bigramer.apply_word_filter(maxfreq_fn)
+
             if not self.min_ngram_occurrences == None:
                 bigramer.apply_freq_filter(self.min_ngram_occurrences)
+
             self.mwes_.extend(
                 list(bigramer.above_score(self.score_function, self.min_score))
             )
+
             if len(self.mwes_) == 0:
                 break
+
             contracter = MWETokenizer(self.mwes_)
             self.tokenization_ = [
                 contracter.tokenize(doc) for doc in self.tokenization_
