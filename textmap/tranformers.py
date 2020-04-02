@@ -397,7 +397,7 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
         return result
 
 
-class MWETransformer(BaseEstimator, TransformerMixin):
+class MultiTokenExpressionTransformer(BaseEstimator, TransformerMixin):
     """
     The transformer takes sequences of tokens and contracts bigrams meeting certain criteria set out by the parameters.
     This is repeated max_iterations times on the previously contracted text to (potentially) contract higher ngrams.
@@ -422,11 +422,11 @@ class MWETransformer(BaseEstimator, TransformerMixin):
     min_ngram_occurrences = int (default = None)
         If not None, the minimal number of occurrences of an ngram to be contracted.
 
-    include_regex = str (default = None)
-        Only contra bigrams where both of the tokens fully match the regular expression
+    ingnored_tokens = set (default = None)
+        Only contracts bigrams where both tokens are not in the ignored_tokens
 
-    exclude_regex = str (default = r\"\W+\")
-        Do not contract bigrams when either of the tokens fully matches the regular expression
+    excluded_token_regex = str (default = r\"\W+\")
+        Do not contract bigrams when either of the tokens fully matches the regular expression via re.fullmatch
 
     """
 
@@ -438,8 +438,8 @@ class MWETransformer(BaseEstimator, TransformerMixin):
         min_token_occurrences=None,
         max_token_occurrences=None,
         min_ngram_occurrences=None,
-        include_regex = None,
-        exclude_regex = r"\W+"
+        ignored_tokens=None,
+        excluded_token_regex=r"\W+",
     ):
 
         self.score_function = score_function
@@ -448,8 +448,8 @@ class MWETransformer(BaseEstimator, TransformerMixin):
         self.min_token_occurrences = min_token_occurrences
         self.max_token_occurrences = max_token_occurrences
         self.min_ngram_occurrences = min_ngram_occurrences
-        self.include_regex = include_regex
-        self.exclude_regex = exclude_regex
+        self.ignored_tokens = ignored_tokens
+        self.excluded_token_regex = excluded_token_regex
         self.mwes_ = list([])
 
     def fit(self, X, **fit_params):
@@ -461,11 +461,12 @@ class MWETransformer(BaseEstimator, TransformerMixin):
         for i in range(self.max_iterations):
             self.tokenization_ = X
             bigramer = BigramCollocationFinder.from_documents(self.tokenization_)
-            if not self.include_regex == None:
-                include_re_fn = lambda w: re.fullmatch(self.include_regex, w) == None
-                bigramer.apply_word_filter(include_re_fn)
-            if not self.exclude_regex == None:
-                exclude_re_fn = lambda w: re.fullmatch(self.exclude_regex, w) != None
+
+            if not self.ignored_tokens == None:
+                ignore_fn = lambda w: w in self.ignored_tokens
+                bigramer.apply_word_filter(ignore_fn)
+            if not self.excluded_token_regex == None:
+                exclude_re_fn = lambda w: re.fullmatch(self.excluded_token_regex, w) is not None
                 bigramer.apply_word_filter(exclude_re_fn)
             if not self.min_token_occurrences == None:
                 minfreq_fn = lambda w: bigramer.word_fd[w] < self.min_token_occurrences

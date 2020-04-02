@@ -13,7 +13,7 @@ from textmap.tokenizers import (
     StanzaTokenizer,
 )
 from .test_common import test_text
-from textmap.tranformers import MWETransformer
+from textmap.tranformers import MultiTokenExpressionTransformer
 
 
 @pytest.mark.parametrize("tokens_by", ["document", "sentence"])
@@ -92,13 +92,17 @@ def test_stanza_remove_sentencizer():
 @pytest.mark.parametrize("min_token_occurrences", [None, 3])
 @pytest.mark.parametrize("max_token_occurrences", [None, 6])
 @pytest.mark.parametrize("min_ngram_occurrences", [None, 3])
+@pytest.mark.parametrize("ignored_tokens", [None, {"foo", "bar"}])
+@pytest.mark.parametrize("excluded_token_regex", [None, r"b\w+"])
 def test_mwe_transformer(
-    min_score, min_token_occurrences, max_token_occurrences, min_ngram_occurrences
+    min_score, min_token_occurrences, max_token_occurrences, min_ngram_occurrences, ignored_tokens, excluded_token_regex
 ):
     tokens = SKLearnTokenizer().fit_transform(test_text)
-    test = MWETransformer(
+    test = MultiTokenExpressionTransformer(
         min_score=min_score,
         min_token_occurrences=min_token_occurrences,
         max_token_occurrences=max_token_occurrences,
         min_ngram_occurrences=min_ngram_occurrences,
+        ignored_tokens = ignored_tokens,
+        excluded_token_regex = excluded_token_regex
     ).fit_transform(tokens)
