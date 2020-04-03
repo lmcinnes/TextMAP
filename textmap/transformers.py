@@ -484,9 +484,12 @@ class MultiTokenExpressionTransformer(BaseEstimator, TransformerMixin):
             if not self.min_ngram_occurrences == None:
                 bigramer.apply_freq_filter(self.min_ngram_occurrences)
 
-            self.mwes_.extend(
-                list(bigramer.above_score(self.score_function, self.min_score))
-            )
+            new_grams = list(bigramer.above_score(self.score_function, self.min_score))
+
+            if len(new_grams) == 0:
+                break
+
+            self.mwes_.extend(new_grams)
 
             if len(self.mwes_) == 0:
                 break
@@ -501,3 +504,7 @@ class MultiTokenExpressionTransformer(BaseEstimator, TransformerMixin):
     def fit_transform(self, X, y=None, **fit_params):
         self.fit(X)
         return self.tokenization_
+
+    def transform(self, X, y=None):
+        contracter = MWETokenizer(self.mwes_)
+        return [contracter.tokenize(doc) for doc in X]
