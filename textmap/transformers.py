@@ -494,7 +494,7 @@ class MultiTokenExpressionTransformer(BaseEstimator, TransformerMixin):
             if len(self.mwes_) == 0:
                 break
 
-            contracter = MWETokenizer(self.mwes_)
+            contracter = MWETokenizer(new_grams)
             self.tokenization_ = [
                 contracter.tokenize(doc) for doc in self.tokenization_
             ]
@@ -507,4 +507,8 @@ class MultiTokenExpressionTransformer(BaseEstimator, TransformerMixin):
 
     def transform(self, X, y=None):
         contracter = MWETokenizer(self.mwes_)
-        return [contracter.tokenize(doc) for doc in X]
+        result =  X
+        for i in range(self.max_iterations):
+            result = [contracter.tokenize(doc) for doc in result]
+        return result
+
