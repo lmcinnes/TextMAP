@@ -94,15 +94,21 @@ def test_stanza_remove_sentencizer():
 @pytest.mark.parametrize("min_ngram_occurrences", [None, 3])
 @pytest.mark.parametrize("ignored_tokens", [None, {"foo", "bar"}])
 @pytest.mark.parametrize("excluded_token_regex", [None, r"b\w+"])
+
 def test_mwe_transformer(
     min_score, min_token_occurrences, max_token_occurrences, min_ngram_occurrences, ignored_tokens, excluded_token_regex
 ):
     tokens = SKLearnTokenizer().fit_transform(test_text)
-    test = MultiTokenExpressionTransformer(
+    mte = MultiTokenExpressionTransformer(
         min_score=min_score,
         min_token_occurrences=min_token_occurrences,
         max_token_occurrences=max_token_occurrences,
         min_ngram_occurrences=min_ngram_occurrences,
         ignored_tokens = ignored_tokens,
         excluded_token_regex = excluded_token_regex
-    ).fit_transform(tokens)
+    )
+    out_fit_transform =  mte.fit_transform(tokens)
+    out_transform = mte.transform(tokens)
+
+    assert out_fit_transform == out_transform
+
