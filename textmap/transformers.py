@@ -450,7 +450,7 @@ class MultiTokenExpressionTransformer(BaseEstimator, TransformerMixin):
         self.min_ngram_occurrences = min_ngram_occurrences
         self.ignored_tokens = ignored_tokens
         self.excluded_token_regex = excluded_token_regex
-        self.mwes_ = list([])
+        self.mtes_ = list([])
 
     def fit(self, X, **fit_params):
         """
@@ -489,12 +489,9 @@ class MultiTokenExpressionTransformer(BaseEstimator, TransformerMixin):
             if len(new_grams) == 0:
                 break
 
-            self.mwes_.extend(new_grams)
+            self.mtes_.append(new_grams)
 
-            if len(self.mwes_) == 0:
-                break
-
-            contracter = MWETokenizer(self.mwes_)
+            contracter = MWETokenizer(new_grams)
             self.tokenization_ = [
                 contracter.tokenize(doc) for doc in self.tokenization_
             ]
@@ -506,5 +503,9 @@ class MultiTokenExpressionTransformer(BaseEstimator, TransformerMixin):
         return self.tokenization_
 
     def transform(self, X, y=None):
-        contracter = MWETokenizer(self.mwes_)
-        return [contracter.tokenize(doc) for doc in X]
+        result =  X
+        for i in range(len(self.mtes_)):
+            contracter = MWETokenizer(self.mtes_[i])
+            result = [contracter.tokenize(doc) for doc in result]
+        return result
+
