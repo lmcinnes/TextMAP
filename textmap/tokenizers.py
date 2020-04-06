@@ -1,4 +1,4 @@
-from .utilities import flatten_list
+from .utilities import flatten
 from warnings import warn
 
 from sklearn.base import BaseEstimator, TransformerMixin
@@ -29,8 +29,8 @@ class BaseTokenizer(BaseEstimator, TransformerMixin):
       Parameters
       ----------
       tokenize_by = 'document' (default), 'sentence' or 'sentence by document'
-        Return a list of lists of tokens per document or a list of lists of tokens per sentence, or a list of lists of
-        lists of tokens per sentence per document.
+        Return a tuple of tuples of tokens per document or a tuple of tuples of tokens per sentence, or a tuple of
+        tuples of tuples of tokens per sentence per document.
 
       nlp = None or a tokenizer class
         If nlp = None then a default tokenizer will be constructed.  Otherwise the one provided will be used.
@@ -49,9 +49,9 @@ class BaseTokenizer(BaseEstimator, TransformerMixin):
                 'The tokenize_by parameter must be "document",  "sentence", or "sentence by document".'
             )
         if self.tokenize_by == "sentence by document":
-            self._flatten = flatten_list
+            self._flatten = lambda x: tuple(x)
         else:
-            self._flatten = lambda x: x
+            self._flatten = flatten
         self.tokenization_ = None
         self.lower_case = lower_case
         self.nlp = nlp
@@ -104,8 +104,8 @@ class NLTKTokenizer(BaseTokenizer):
       Parameters
       ----------
       tokenize_by = 'document' (default), 'sentence' or 'sentence by document'
-        Return a list of lists of tokens per document or a list of lists of tokens per sentence, or a list of lists of
-        lists of tokens per sentence per document.
+        Return a tuple of tuples of tokens per document or a tuple of tuples of tokens per sentence, or a tuple of
+        tuples of tuples of tokens per sentence per document.
 
       nlp = 'default' or an NLTK style tokenizer
         The default will tokenize via an NLTK tokenizer using NLTK's word_tokenize function.
@@ -141,17 +141,20 @@ class NLTKTokenizer(BaseTokenizer):
         """
 
         if self.lower_case:
-            tokenize = lambda d: [w.lower() for w in self.nlp.tokenize(d)]
+            tokenize = lambda d: (w.lower() for w in self.nlp.tokenize(d))
         else:
-            tokenize = lambda d: self.nlp.tokenize(d)
+            tokenize = lambda d: tuple(self.nlp.tokenize(d))
 
         if self.tokenize_by in ["sentence", "sentence by document"]:
             self.tokenization_ = self._flatten(
-                [[tokenize(sent) for sent in sent_tokenize(doc)] for doc in X]
+                [
+                    tuple([tuple(tokenize(sent)) for sent in sent_tokenize(doc)])
+                    for doc in X
+                ]
             )
 
         elif self.tokenize_by == "document":
-            self.tokenization_ = [tokenize(doc) for doc in X]
+            self.tokenization_ = tuple([tuple(tokenize(doc)) for doc in X])
         else:
             raise ValueError(
                 'The tokenize_by parameter must be "document",  "sentence", or "sentence by document".'
@@ -166,8 +169,8 @@ class NLTKTweetTokenizer(NLTKTokenizer):
       Parameters
       ----------
       tokenize_by = 'document' (default), 'sentence' or 'sentence by document'
-        Return a list of lists of tokens per document or a list of lists of tokens per sentence, or a list of lists of
-        lists of tokens per sentence per document.
+        Return a tuple of tuples of tokens per document or a tuple of tuples of tokens per sentence, or a tuple of
+        tuples of tuples of tokens per sentence per document.
 
       nlp = 'default' or an NLTKTokenizer
         The default it will be the NLTK's TweetTokenizer with default settings
@@ -200,15 +203,15 @@ class NLTKTweetTokenizer(NLTKTokenizer):
 class SKLearnTokenizer(BaseTokenizer):
     """
     A generic class that tokenizes via any tokenization function accepted in scikit-learn. By default it uses
-    CountVectorizer's default document preprocessing and word tokenizer
+    CountVectorizer's default document preprocessing and word tokenizer.
 
     Note: It will use NLTK sentence tokenizer if tokenizing by sentence as there is no scikit-learn default.
 
     Parameters
     ----------
     tokenize_by = 'document' (default), 'sentence' or 'sentence by document'
-        Return a list of lists of tokens per document or a list of lists of tokens per sentence, or a list of lists of
-        lists of tokens per sentence per document.
+        Return a tuple of tuples of tokens per document or a tuple of tuples of tokens per sentence, or a tuple of
+        tuples of tuples of tokens per sentence per document.
 
     nlp = 'default' or a function
         This can be any function which takes in strings and returns a list of strings.  The default is the
@@ -247,11 +250,14 @@ class SKLearnTokenizer(BaseTokenizer):
 
         if self.tokenize_by in ["sentence", "sentence by document"]:
             self.tokenization_ = self._flatten(
-                [[self.nlp(sent) for sent in sent_tokenize(doc)] for doc in X]
+                [
+                    tuple([tuple(self.nlp(sent)) for sent in sent_tokenize(doc)])
+                    for doc in X
+                ]
             )
 
         elif self.tokenize_by == "document":
-            self.tokenization_ = [self.nlp(doc) for doc in X]
+            self.tokenization_ = tuple([tuple(self.nlp(doc)) for doc in X])
 
         else:
             raise ValueError(
@@ -267,11 +273,11 @@ class StanzaTokenizer(BaseTokenizer):
     Parameters
     ----------
     tokenize_by = 'document' (default), 'sentence' or 'sentence by document'
-        Return a list of lists of tokens per document or a list of lists of tokens per sentence, or a list of lists of
-        lists of tokens per sentence per document.
+        Return a tuple of tuples of tokens per document or a tuple of tuples of tokens per sentence, or a tuple of
+        tuples of tuples of tokens per sentence per document.
 
     nlp = 'default' (default) or a stanza.Pipeline
-      The stanza tokenizer.  If None then a default one will be created.
+        The stanza tokenizer.  If None then a default one will be created.
 
     lower_case = bool (default = True)
         Apply str.lower() to the tokens upon tokenization
@@ -332,18 +338,22 @@ class StanzaTokenizer(BaseTokenizer):
         if self.tokenize_by in ["sentence", "sentence by document"]:
             self.tokenization_ = self._flatten(
                 [
-                    [
-                        [token_text(token) for token in sent.tokens]
-                        for sent in self.nlp(doc).sentences
-                    ]
+                    tuple(
+                        [
+                            tuple([token_text(token) for token in sent.tokens])
+                            for sent in self.nlp(doc).sentences
+                        ]
+                    )
                     for doc in X
                 ]
             )
         elif self.tokenize_by == "document":
-            self.tokenization_ = [
-                [token_text(token) for token in self.nlp(doc).iter_tokens()]
-                for doc in X
-            ]
+            self.tokenization_ = tuple(
+                [
+                    tuple([token_text(token) for token in self.nlp(doc).iter_tokens()])
+                    for doc in X
+                ]
+            )
         else:
             raise ValueError(
                 'The tokenize_by parameter must be "document",  "sentence", or "sentence by document".'
@@ -357,14 +367,14 @@ class SpaCyTokenizer(BaseTokenizer):
     Parameters
     ----------
     tokenize_by = 'document' (default), 'sentence' or 'sentence by document'
-        Return a list of lists of tokens per document or a list of lists of tokens per sentence, or a list of lists of
-        lists of tokens per sentence per document.
+        Return a tuple of tuples of tokens per document or a tuple of tuples of tokens per sentence, or a tuple of
+        tuples of tuples of tokens per sentence per document.
 
     nlp = 'default' or a spaCy pipeline
-      The spaCy tokenizer.  If None, a default one will be created.
+        The spaCy tokenizer.  If None, a default one will be created.
 
     lower_case = bool (default = True)
-      Tokenizes as the token.text (if False) or token.lower (if True)
+        Tokenizes as the token.text (if False) or token.lower (if True)
     """
 
     @property
@@ -421,15 +431,23 @@ class SpaCyTokenizer(BaseTokenizer):
         if self.tokenize_by in ["sentence", "sentence by document"]:
             self.tokenization_ = self._flatten(
                 [
-                    [[token_text(token) for token in sent] for sent in doc.sents]
+                    tuple(
+                        [
+                            tuple([token_text(token) for token in sent])
+                            for sent in doc.sents
+                        ]
+                    )
                     for doc in self.nlp.pipe(X)
                 ]
             )
 
         elif self.tokenize_by == "document":
-            self.tokenization_ = [
-                [token_text(token) for token in doc] for doc in self.nlp.pipe(X)
-            ]
+            self.tokenization_ = tuple(
+                [
+                    tuple([token_text(token) for token in doc])
+                    for doc in self.nlp.pipe(X)
+                ]
+            )
         else:
             raise ValueError(
                 'The tokenize_by parameter must be "document",  "sentence", or "sentence by document".'
