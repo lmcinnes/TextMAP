@@ -2,11 +2,13 @@ import numpy as np
 import numba
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
+from sklearn.preprocessing import normalize
 import enstop
 from nltk.collocations import BigramCollocationFinder
 from nltk.metrics import BigramAssocMeasures
 from nltk.tokenize import MWETokenizer
 import re
+from warnings import warn
 
 EPS = 1e-11
 
@@ -350,10 +352,21 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
         """
 
         check_is_fitted(self, ["model_"])
+        sums = np.array(X.sum(axis=1))
+        # Note that the the L_1 normalization of a zero row will be all zeros
+        if {np.isclose(a, 0.0) or np.isclose(a, 1.0) for a in sums.T[0]} != {True}:
+            warn(
+                "L_1 normalization being applied to the input. To avoid this warning in the future apply "
+                'sklearn.preprocessing.normalize(X, "l1") before calling transform.'
+            )
+            normalization = lambda X: normalize(X, "l1")
+        else:
+            normalization = lambda X: X
+
         embedding_ = self.model_.transform(X)
 
         result, weights = multinomial_em_sparse(
-            X,
+            normalization(X),
             embedding_,
             self.model_.components_,
             low_thresh=self.em_threshold,
@@ -385,8 +398,19 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
         """
 
         self.fit(X, **fit_params)
+        sums = np.array(X.sum(axis=1))
+        # Note that the the L_1 normalization of a zero row will be all zeros
+        if {np.isclose(a, 0.0) or np.isclose(a, 1.0) for a in sums.T[0]} != {True}:
+            warn(
+                "L_1 normalization being applied to the input. To avoid this warning in the future, apply "
+                'sklearn.preprocessing.normalize(X, "l1") before calling transform.'
+            )
+            normalization = lambda X: normalize(X, "l1")
+        else:
+            normalization = lambda X: X
+
         result, weights = multinomial_em_sparse(
-            X,
+            normalization(X),
             self.model_.embedding_,
             self.model_.components_,
             low_thresh=self.em_threshold,
@@ -503,9 +527,8 @@ class MultiTokenExpressionTransformer(BaseEstimator, TransformerMixin):
         return self.tokenization_
 
     def transform(self, X, y=None):
-        result =  X
+        result = X
         for i in range(len(self.mtes_)):
             contracter = MWETokenizer(self.mtes_[i])
             result = [contracter.tokenize(doc) for doc in result]
         return result
-
