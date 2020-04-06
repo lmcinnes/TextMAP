@@ -16,7 +16,7 @@ from .test_common import test_text
 from textmap.transformers import MultiTokenExpressionTransformer
 
 
-@pytest.mark.parametrize("tokens_by", ["document", "sentence"])
+@pytest.mark.parametrize("tokens_by", ["document", "sentence", "sentence by document"])
 @pytest.mark.parametrize("lower_case", [True, False])
 def test_sklearn_tokenizer(tokens_by, lower_case):
     tokenizer = SKLearnTokenizer(tokenize_by=tokens_by, lower_case=lower_case).fit(
@@ -24,7 +24,7 @@ def test_sklearn_tokenizer(tokens_by, lower_case):
     )
 
 
-@pytest.mark.parametrize("tokens_by", ["document", "sentence"])
+@pytest.mark.parametrize("tokens_by", ["document", "sentence", "sentence by document"])
 @pytest.mark.parametrize("lower_case", [True, False])
 def test_nltk_tokenizer(tokens_by, lower_case):
     tokenizer = NLTKTokenizer(tokenize_by=tokens_by, lower_case=lower_case).fit(
@@ -32,7 +32,7 @@ def test_nltk_tokenizer(tokens_by, lower_case):
     )
 
 
-@pytest.mark.parametrize("tokens_by", ["document", "sentence"])
+@pytest.mark.parametrize("tokens_by", ["document", "sentence", "sentence by document"])
 @pytest.mark.parametrize("lower_case", [True, False])
 def test_tweet_tokenizer(tokens_by, lower_case):
     tokenizer = NLTKTweetTokenizer(tokenize_by=tokens_by, lower_case=lower_case).fit(
@@ -40,7 +40,7 @@ def test_tweet_tokenizer(tokens_by, lower_case):
     )
 
 
-@pytest.mark.parametrize("tokens_by", ["document", "sentence"])
+@pytest.mark.parametrize("tokens_by", ["document", "sentence", "sentence by document"])
 @pytest.mark.parametrize("lower_case", [True, False])
 def test_spacy_tokenizer(tokens_by, lower_case):
     tokenizer = SpaCyTokenizer(tokenize_by=tokens_by, lower_case=lower_case).fit(
@@ -94,9 +94,13 @@ def test_stanza_remove_sentencizer():
 @pytest.mark.parametrize("min_ngram_occurrences", [None, 3])
 @pytest.mark.parametrize("ignored_tokens", [None, {"foo", "bar"}])
 @pytest.mark.parametrize("excluded_token_regex", [None, r"b\w+"])
-
 def test_mwe_transformer(
-    min_score, min_token_occurrences, max_token_occurrences, min_ngram_occurrences, ignored_tokens, excluded_token_regex
+    min_score,
+    min_token_occurrences,
+    max_token_occurrences,
+    min_ngram_occurrences,
+    ignored_tokens,
+    excluded_token_regex,
 ):
     tokens = SKLearnTokenizer().fit_transform(test_text)
     mte = MultiTokenExpressionTransformer(
@@ -104,11 +108,10 @@ def test_mwe_transformer(
         min_token_occurrences=min_token_occurrences,
         max_token_occurrences=max_token_occurrences,
         min_ngram_occurrences=min_ngram_occurrences,
-        ignored_tokens = ignored_tokens,
-        excluded_token_regex = excluded_token_regex
+        ignored_tokens=ignored_tokens,
+        excluded_token_regex=excluded_token_regex,
     )
-    out_fit_transform =  mte.fit_transform(tokens)
+    out_fit_transform = mte.fit_transform(tokens)
     out_transform = mte.transform(tokens)
 
     assert out_fit_transform == out_transform
-
