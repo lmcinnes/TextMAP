@@ -28,8 +28,9 @@ class BaseTokenizer(BaseEstimator, TransformerMixin):
     
       Parameters
       ----------
-      tokenize_by = 'document' (default) or 'sentence'
-        Return a list of lists of tokens per document or a list of lists of lists of tokens per sentence per document
+      tokenize_by = 'document' (default), 'sentence' or 'sentence by document'
+        Return a list of lists of tokens per document or a list of lists of tokens per sentence, or a list of lists of
+        lists of tokens per sentence per document.
 
       nlp = None or a tokenizer class
         If nlp = None then a default tokenizer will be constructed.  Otherwise the one provided will be used.
@@ -41,10 +42,16 @@ class BaseTokenizer(BaseEstimator, TransformerMixin):
 
     def __init__(self, tokenize_by="document", nlp="default", lower_case=True):
         try:
-            assert tokenize_by in ["document", "sentence"]
+            assert tokenize_by in ["document", "sentence", "sentence by document"]
             self.tokenize_by = tokenize_by
         except AssertionError:
-            raise ValueError("tokenize_by parameter must be 'document' or 'sentence'")
+            raise ValueError(
+                'The tokenize_by parameter must be "document",  "sentence", or "sentence by document".'
+            )
+        if self.tokenize_by == "sentence by document":
+            self._flatten = flatten_list
+        else:
+            self._flatten = lambda x: x
         self.tokenization_ = None
         self.lower_case = lower_case
         self.nlp = nlp
@@ -70,7 +77,7 @@ class BaseTokenizer(BaseEstimator, TransformerMixin):
         self
         """
 
-        self.tokenization_ = None
+        self.tokenization_ = X
         return self
 
     def fit_transform(self, X, **fit_params):
@@ -92,12 +99,13 @@ class BaseTokenizer(BaseEstimator, TransformerMixin):
 
 class NLTKTokenizer(BaseTokenizer):
     """
-    Tokenizes via any NLTKTokenizer, using sent_tokenize and word_tokenize by default,
+    Tokenizes via any NLTKTokenizer like class, using sent_tokenize and word_tokenize by default,
 
       Parameters
       ----------
-      tokenize_by = 'document' (default) or 'sentence'
-        Return a list of lists of tokens per document or a list of lists of tokens per sentence.
+      tokenize_by = 'document' (default), 'sentence' or 'sentence by document'
+        Return a list of lists of tokens per document or a list of lists of tokens per sentence, or a list of lists of
+        lists of tokens per sentence per document.
 
       nlp = 'default' or an NLTK style tokenizer
         The default will tokenize via an NLTK tokenizer using NLTK's word_tokenize function.
@@ -137,15 +145,17 @@ class NLTKTokenizer(BaseTokenizer):
         else:
             tokenize = lambda d: self.nlp.tokenize(d)
 
-        if self.tokenize_by == "sentence":
-            self.tokenization_ = flatten_list(
+        if self.tokenize_by in ["sentence", "sentence by document"]:
+            self.tokenization_ = self._flatten(
                 [[tokenize(sent) for sent in sent_tokenize(doc)] for doc in X]
             )
 
         elif self.tokenize_by == "document":
             self.tokenization_ = [tokenize(doc) for doc in X]
         else:
-            raise ValueError('tokenize_by parameter must be "document" or "sentence"')
+            raise ValueError(
+                'The tokenize_by parameter must be "document",  "sentence", or "sentence by document".'
+            )
         return self
 
 
@@ -155,8 +165,9 @@ class NLTKTweetTokenizer(NLTKTokenizer):
 
       Parameters
       ----------
-      tokenize_by = 'document' (default) or 'sentence'
-        Return a list of lists of tokens per document or a list of lists of tokens per sentence
+      tokenize_by = 'document' (default), 'sentence' or 'sentence by document'
+        Return a list of lists of tokens per document or a list of lists of tokens per sentence, or a list of lists of
+        lists of tokens per sentence per document.
 
       nlp = 'default' or an NLTKTokenizer
         The default it will be the NLTK's TweetTokenizer with default settings
@@ -195,8 +206,9 @@ class SKLearnTokenizer(BaseTokenizer):
 
     Parameters
     ----------
-    tokenize_by = 'document' (default) or 'sentence'
-        Return a list of lists of tokens per document or a list of lists of tokens per sentence
+    tokenize_by = 'document' (default), 'sentence' or 'sentence by document'
+        Return a list of lists of tokens per document or a list of lists of tokens per sentence, or a list of lists of
+        lists of tokens per sentence per document.
 
     nlp = 'default' or a function
         This can be any function which takes in strings and returns a list of strings.  The default is the
@@ -233,8 +245,8 @@ class SKLearnTokenizer(BaseTokenizer):
         self
         """
 
-        if self.tokenize_by == "sentence":
-            self.tokenization_ = flatten_list(
+        if self.tokenize_by in ["sentence", "sentence by document"]:
+            self.tokenization_ = self._flatten(
                 [[self.nlp(sent) for sent in sent_tokenize(doc)] for doc in X]
             )
 
@@ -242,7 +254,9 @@ class SKLearnTokenizer(BaseTokenizer):
             self.tokenization_ = [self.nlp(doc) for doc in X]
 
         else:
-            raise ValueError("tokenize_by parameter must be 'document' or 'sentence'")
+            raise ValueError(
+                'The tokenize_by parameter must be "document",  "sentence", or "sentence by document".'
+            )
 
         return self
 
@@ -252,8 +266,9 @@ class StanzaTokenizer(BaseTokenizer):
 
     Parameters
     ----------
-    tokenize_by = 'document' (default) or 'sentence'
-        Return a list of lists of tokens per document or a list of lists of tokens per sentence
+    tokenize_by = 'document' (default), 'sentence' or 'sentence by document'
+        Return a list of lists of tokens per document or a list of lists of tokens per sentence, or a list of lists of
+        lists of tokens per sentence per document.
 
     nlp = 'default' (default) or a stanza.Pipeline
       The stanza tokenizer.  If None then a default one will be created.
@@ -271,7 +286,7 @@ class StanzaTokenizer(BaseTokenizer):
         if model == "default":
             # A default Stanza NLP pipeline
             stanza.download(lang="en", processors="tokenize")
-            if self.tokenize_by == "sentence":
+            if self.tokenize_by in ["sentence", "sentence by document"]:
                 BASIC_STANZA_PIPELINE = stanza.Pipeline(processors="tokenize")
             else:
                 BASIC_STANZA_PIPELINE = stanza.Pipeline(
@@ -279,7 +294,7 @@ class StanzaTokenizer(BaseTokenizer):
                 )
             self._nlp = BASIC_STANZA_PIPELINE
         else:
-            if self.tokenize_by == "sentence":
+            if self.tokenize_by in ["sentence", "sentence by document"]:
                 if model.config["tokenize_no_ssplit"]:
                     model.processors["tokenize"].config["no_ssplit"] = False
                     model.config["tokenize_no_ssplit"] = False
@@ -314,8 +329,8 @@ class StanzaTokenizer(BaseTokenizer):
         else:
             token_text = lambda t: t.text
 
-        if self.tokenize_by == "sentence":
-            self.tokenization_ = flatten_list(
+        if self.tokenize_by in ["sentence", "sentence by document"]:
+            self.tokenization_ = self._flatten(
                 [
                     [
                         [token_text(token) for token in sent.tokens]
@@ -330,7 +345,9 @@ class StanzaTokenizer(BaseTokenizer):
                 for doc in X
             ]
         else:
-            raise ValueError("tokenize_by parameter must be 'document' or 'sentence'")
+            raise ValueError(
+                'The tokenize_by parameter must be "document",  "sentence", or "sentence by document".'
+            )
         return self
 
 
@@ -339,8 +356,9 @@ class SpaCyTokenizer(BaseTokenizer):
 
     Parameters
     ----------
-    tokenize_by = 'document' (default) or 'sentence'
-        Return a list of lists of tokens per document or a list of lists of tokens per sentence
+    tokenize_by = 'document' (default), 'sentence' or 'sentence by document'
+        Return a list of lists of tokens per document or a list of lists of tokens per sentence, or a list of lists of
+        lists of tokens per sentence per document.
 
     nlp = 'default' or a spaCy pipeline
       The spaCy tokenizer.  If None, a default one will be created.
@@ -358,14 +376,14 @@ class SpaCyTokenizer(BaseTokenizer):
         if model == "default":
             # A default spaCy NLP pipeline
             BASIC_SPACY_PIPELINE = spacy.lang.en.English()
-            if self.tokenize_by == "sentence":
+            if self.tokenize_by in ["sentence", "sentence by document"]:
                 BASIC_SPACY_PIPELINE.add_pipe(
                     BASIC_SPACY_PIPELINE.create_pipe("sentencizer"), first=True
                 )
             self._nlp = BASIC_SPACY_PIPELINE
         else:
             # Check that the required components are there
-            if self.tokenize_by == "sentence":
+            if self.tokenize_by in ["sentence", "sentence by document"]:
                 if "sentencizer" not in model.pipe_names:
                     try:
                         model.add_pipe(model.create_pipe("sentencizer"), first=True)
@@ -400,8 +418,8 @@ class SpaCyTokenizer(BaseTokenizer):
         else:
             token_text = lambda t: t.text
 
-        if self.tokenize_by == "sentence":
-            self.tokenization_ = flatten_list(
+        if self.tokenize_by in ["sentence", "sentence by document"]:
+            self.tokenization_ = self._flatten(
                 [
                     [[token_text(token) for token in sent] for sent in doc.sents]
                     for doc in self.nlp.pipe(X)
@@ -413,6 +431,8 @@ class SpaCyTokenizer(BaseTokenizer):
                 [token_text(token) for token in doc] for doc in self.nlp.pipe(X)
             ]
         else:
-            raise ValueError("tokenize_by parameter must be 'document' or 'sentence'")
+            raise ValueError(
+                'The tokenize_by parameter must be "document",  "sentence", or "sentence by document".'
+            )
 
         return self
