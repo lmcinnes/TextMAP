@@ -21,6 +21,8 @@ nltk.download('punkt')
 
 test_text = [
     "foo bar pok wer pok pok foo bar wer qwe pok asd fgh",
+    "foo bar pok wer pok pok foo bar wer qwe pok asd fgh",
+    "",
     "fgh asd foo pok qwe pok wer pok foo bar pok pok wer",
     "pok wer pok qwe foo asd foo bar pok wer asd wer pok",
 ]

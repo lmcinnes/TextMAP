@@ -361,7 +361,7 @@ class StanzaTokenizer(BaseTokenizer):
         return self
 
 
-class SpaCyTokenizer(BaseTokenizer):
+class SpacyTokenizer(BaseTokenizer):
     """
 
     Parameters
