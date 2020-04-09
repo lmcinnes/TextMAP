@@ -7,7 +7,7 @@ from textmap import WordMAP
 from textmap import DocMAP
 from textmap import TopicMAP
 
-from textmap.vectorizers import DocVectorizer
+from textmap.vectorizers import DocVectorizer, WordVectorizer
 
 import nltk
 nltk.download('punkt')
@@ -30,3 +30,23 @@ test_text = [
 def test_docvectorizer_basic():
     vectorizer = DocVectorizer()
     result = vectorizer.fit(test_text)
+
+@pytest.mark.parametrize("tokenizer", ["nltk", "tweet", "spacy","stanza","sklearn"])
+@pytest.mark.parametrize("token_contractor", ["aggressive", "conservative"])
+@pytest.mark.parametrize("vectorizer", ["flat", "flat_1_5"])
+@pytest.mark.parametrize("normalize", [True, False])
+@pytest.mark.parametrize("dedupe_sentences", [True, False])
+def test_wordvectorizer_basic(tokenizer, token_contractor, vectorizer, normalize, dedupe_sentences):
+    vectorizer = WordVectorizer(tokenizer=tokenizer,
+                                token_contractor=token_contractor,
+                                vectorizer=vectorizer,
+                                normalize=normalize,
+                                dedupe_sentences=dedupe_sentences)
+    result = vectorizer.fit_transform(test_text)
+    if vectorizer == 'flat':
+        assert result.shape == (7, 14)
+    if vectorizer == 'flat_1_5':
+        assert result.shape == (7, 28)
+    assert type(result) == scipy.sparse.csr.csr_matrix
+
+

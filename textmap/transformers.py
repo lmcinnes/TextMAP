@@ -294,6 +294,7 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
         em_precision=1.0e-4,
         em_background_prior=5.0,
         em_threshold=1.0e-5,
+        normalize = True,
     ):
 
         self.n_components = n_components
@@ -301,6 +302,7 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
         self.em_threshold = em_threshold
         self.em_background_prior = em_background_prior
         self.em_precision = em_precision
+        self.normalize = normalize
 
     def fit(self, X, y=None, **fit_params):
         """
@@ -353,15 +355,20 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
 
         check_is_fitted(self, ["model_"])
         sums = np.array(X.sum(axis=1))
-        # Note that the the L_1 normalization of a zero row will be all zeros
-        if {np.isclose(a, 0.0) or np.isclose(a, 1.0) for a in sums.T[0]} != {True}:
-            warn(
-                "L_1 normalization being applied to the input. To avoid this warning in the future apply "
-                'sklearn.preprocessing.normalize(X, "l1") before calling transform.'
-            )
+        if self.normalize:
             normalization = lambda X: normalize(X, "l1")
         else:
-            normalization = lambda X: X
+            # Currently the EM only deals with L_1 normalized data but
+            # in future we hope to have it work with general counts.
+            # Note that the the L_1 normalization of a zero row will be all zeros
+            if {np.isclose(a, 0.0) or np.isclose(a, 1.0) for a in sums.T[0]} != {True}:
+                warn(
+                    "L_1 normalization being applied to the input. To avoid this warning in the future apply "
+                    'sklearn.preprocessing.normalize(X, "l1") before calling transform.'
+                )
+                normalization = lambda X: normalize(X, "l1")
+            else:
+                normalization = lambda X: X
 
         embedding_ = self.model_.transform(X)
 
