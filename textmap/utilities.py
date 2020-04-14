@@ -32,7 +32,6 @@ _COOCCURRENCE_VECTORIZERS = {
 }
 
 
-
 def flatten(list_of_seq):
     assert isinstance(list_of_seq, Iterable)
     if len(list_of_seq) == 0:
@@ -51,6 +50,7 @@ def flatten_list(list_of_seq):
         return list(itertools.chain.from_iterable(list_of_seq))
     else:
         return list_of_seq
+
 
 def create_processing_pipeline_stage(class_to_create, class_dict, kwds, class_type):
     if class_to_create is None:
@@ -154,11 +154,12 @@ class MultiTokenCooccurrenceVectorizer(BaseEstimator, TransformerMixin):
                 f"vectorizer {self.vectorizer_names_list_[i]}",
             )
             token_cooccurence = vectorizer_.fit_transform(X)
+
             if self.info_weight_transformer_ is not None:
                 token_cooccurence = self.info_weight_transformer_.fit_transform(
                     token_cooccurence
                 )
-            token_cooccurence = normalize(token_cooccurence, norm='l1')
+            token_cooccurence = normalize(token_cooccurence, norm="l1")
             if self.remove_effects_transformer_ is not None:
                 token_cooccurence = self.remove_effects_transformer_.fit_transform(
                     token_cooccurence
