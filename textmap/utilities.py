@@ -160,7 +160,6 @@ class MultiTokenCooccurrenceVectorizer(BaseEstimator, TransformerMixin):
                     token_cooccurence
                 )
             if self.remove_effects_transformer_ is not None:
-                token_cooccurence = normalize(token_cooccurence, norm="l1")
                 token_cooccurence = self.remove_effects_transformer_.fit_transform(
                     token_cooccurence
                 )
