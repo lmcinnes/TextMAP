@@ -142,7 +142,7 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
         result = info_weight_matrix(
             X, embedding_, self.model_.components_, self.tokens_per_doc_
         )
-
+        result.eliminate_zeros()
         return result
 
     def fit_transform(self, X, y=None, **fit_params):
@@ -171,7 +171,7 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
         result = info_weight_matrix(
             X, self.model_.embedding_, self.model_.components_, self.tokens_per_doc_
         )
-
+        result.eliminate_zeros()
         return result
 
 
@@ -294,6 +294,7 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
         em_precision=1.0e-4,
         em_background_prior=5.0,
         em_threshold=1.0e-5,
+        normalize = True,
     ):
 
         self.n_components = n_components
@@ -301,6 +302,7 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
         self.em_threshold = em_threshold
         self.em_background_prior = em_background_prior
         self.em_precision = em_precision
+        self.normalize = normalize
 
     def fit(self, X, y=None, **fit_params):
         """
@@ -353,15 +355,20 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
 
         check_is_fitted(self, ["model_"])
         sums = np.array(X.sum(axis=1))
-        # Note that the the L_1 normalization of a zero row will be all zeros
-        if {np.isclose(a, 0.0) or np.isclose(a, 1.0) for a in sums.T[0]} != {True}:
-            warn(
-                "L_1 normalization being applied to the input. To avoid this warning in the future apply "
-                'sklearn.preprocessing.normalize(X, "l1") before calling transform.'
-            )
+        if self.normalize:
             normalization = lambda X: normalize(X, "l1")
         else:
-            normalization = lambda X: X
+            # Currently the EM only deals with L_1 normalized data but
+            # in future we hope to have it work with general counts.
+            # Note that the the L_1 normalization of a zero row will be all zeros
+            if {np.isclose(a, 0.0) or np.isclose(a, 1.0) for a in sums.T[0]} != {True}:
+                warn(
+                    "L_1 normalization being applied to the input. To avoid this warning in the future apply "
+                    'sklearn.preprocessing.normalize(X, "l1") before calling transform.'
+                )
+                normalization = lambda X: normalize(X, "l1")
+            else:
+                normalization = lambda X: X
 
         embedding_ = self.model_.transform(X)
 
@@ -374,7 +381,7 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
             precision=self.em_precision,
         )
         self.mix_weights_ = weights
-
+        result.eliminate_zeros()
         return result
 
     def fit_transform(self, X, y=None, **fit_params):
@@ -418,6 +425,7 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
             precision=self.em_precision,
         )
         self.mix_weights_ = weights
+        result.eliminate_zeros()
         return result
 
 
@@ -532,9 +540,9 @@ class MultiTokenExpressionTransformer(BaseEstimator, TransformerMixin):
             self.mtes_.append(new_grams)
 
             contracter = MWETokenizer(new_grams)
-            self.tokenization_ = [
-                contracter.tokenize(doc) for doc in self.tokenization_
-            ]
+            self.tokenization_ = tuple([
+                tuple(contracter.tokenize(doc)) for doc in self.tokenization_
+            ])
 
         return self
 
@@ -546,5 +554,67 @@ class MultiTokenExpressionTransformer(BaseEstimator, TransformerMixin):
         result = X
         for i in range(len(self.mtes_)):
             contracter = MWETokenizer(self.mtes_[i])
-            result = [contracter.tokenize(doc) for doc in result]
+            result = tuple([tuple(contracter.tokenize(doc)) for doc in result])
         return result
+
+#####################################################################
+class FeatureBasisTransformer(BaseEstimator, TransformerMixin):
+    """
+    This is really just a word vectorizer followed by a PLSA or SVD.
+    """
+    def __init__(self,
+                 token_vectorizer = 'default',
+                 transformer ='plsa',
+                 ):
+        if(token_vectorizer=='default'):
+            self.token_vectorizer = WordVectorizer()
+        else:
+            self.token_vectorizer = token_vectorizer
+        if(transformer=='plsa'):
+            #This might increase your dimensionality
+            self.transformer = PLSA(n_components=300)
+        else:
+            self.transformer = transformer
+
+    def fit(self, X, y=None, **fit_params):
+        """
+
+        Parameters
+        ----------
+        X= scipy.sparse.matrix
+
+        Returns
+        -------
+        self
+        """
+        tokens = self.token_vectorizer.fit_transform(X)
+        representation_ = self.transformer.fit_transform(tokens)
+        return self
+
+    def fit_transform(self, X, y=None, **fit_params):
+        """
+
+        Parameters
+        ----------
+        X= scipy.sparse.matrix
+
+        Returns
+        -------
+        scipy.sparse.matrix
+        """
+        self.fit(X, y **fit_params)
+        return self.representation_
+
+    def transform(self, X):
+        """
+
+        Parameters
+        ----------
+        X= scipy.sparse.matrix
+
+        Returns
+        -------
+        self
+        """
+        pass
+

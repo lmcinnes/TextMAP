@@ -1,84 +1,178 @@
 from vectorizers import NgramVectorizer, TokenCooccurrenceVectorizer
 from sklearn.base import BaseEstimator, TransformerMixin
-from .transformers import InformationWeightTransformer, RemoveEffectsTransformer
-from .tokenizers import NLTKTokenizer, BaseTokenizer
+from .transformers import (
+    InformationWeightTransformer,
+    RemoveEffectsTransformer,
+    MultiTokenExpressionTransformer,
+)
+from .utilities import (
+    MultiTokenCooccurrenceVectorizer,
+    create_processing_pipeline_stage,
+    _INFO_WEIGHT_TRANSFORERS,
+    _REMOVE_EFFECT_TRANSFORMERS,
+)
+from .tokenizers import (
+    NLTKTokenizer,
+    BaseTokenizer,
+    NLTKTweetTokenizer,
+    SpacyTokenizer,
+    StanzaTokenizer,
+    SKLearnTokenizer,
+)
 from scipy.sparse import hstack
 from sklearn.preprocessing import normalize
 import pandas as pd
+from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
+
+
+import numpy as np
+
+# TODO: Should we wrap this in a try so we don't have a hard dependency?
+# TruncatedSVD or a variety of other algorithms should also work.
+from enstop import PLSA
 from .utilities import flatten
+
+_DOCUMENT_TOKENIZERS = {
+    "nltk": {"class": NLTKTokenizer, "kwds": {}},
+    "tweet": {"class": NLTKTweetTokenizer, "kwds": {}},
+    "spacy": {"class": SpacyTokenizer, "kwds": {}},
+    "stanza": {"class": StanzaTokenizer, "kwds": {}},
+    "sklearn": {"class": SKLearnTokenizer, "kwds": {}},
+}
+
+_SENTENCE_TOKENIZERS = {
+    "nltk": {"class": NLTKTokenizer, "kwds": {"tokenize_by": "sentence"}},
+    "tweet": {"class": NLTKTweetTokenizer, "kwds": {"tokenize_by": "sentence"}},
+    "spacy": {"class": SpacyTokenizer, "kwds": {"tokenize_by": "sentence"}},
+    "stanza": {"class": StanzaTokenizer, "kwds": {"tokenize_by": "sentence"}},
+    "sklearn": {"class": SKLearnTokenizer, "kwds": {"tokenize_by": "sentence"}},
+}
+
+_CONTRACTORS = {
+    "aggressive": {
+        "class": MultiTokenExpressionTransformer,
+        "kwds": {"max_iterations": 6},
+    },
+    #"max_token_frequency": 1e-4
+    "conservative": {"class": MultiTokenExpressionTransformer, "kwds": {"max_iterations": 2}},
+}
+
+_DOCUMENT_VECTORIZERS = {
+    'bow': {'class': NgramVectorizer, 'kwds': {'min_frequency': 1e-5, 'excluded_token_regex': '\W+'}}
+}
+
+# We need a few aggressive vocabulary pruning tokenizer defaults
+# It's a bit unfortunate that they are buried deeply in this class.
+# Maybe expose parameters at the top layer and push them down if they don't conflict.
+_MULTITOKEN_COOCCURRENCE_VECTORIZERS = {
+    "flat": {
+        "class": MultiTokenCooccurrenceVectorizer,
+        "kwds": {
+            "vectorizer_list": ["before", "after"],
+            "vectorizer_name_list": ["pre", "post"],
+        },
+    },
+    "flat_1_5": {
+        "class": MultiTokenCooccurrenceVectorizer,
+        "kwds": {
+            "vectorizer_list": ["before", "after", "before", "after"],
+            "vectorizer_kwds_list": [
+                {"window_args": (1,)},
+                {"window_args": (1,)},
+                {"window_args": (5,)},
+                {"window_args": (5,)},
+            ],
+            "vectorizer_name_list": ["pre_1", "post_1", "pre_5", "post_5"],
+        },
+    },
+}
 
 
 class WordVectorizer(BaseEstimator, TransformerMixin):
     def __init__(
         self,
-        tokenizer=NLTKTokenizer(tokenize_by="sentence"),
-        vectorizer=TokenCooccurrenceVectorizer(),
-        info_weight_transformer=InformationWeightTransformer(),
-        remove_effects_transformer=RemoveEffectsTransformer(),
+        tokenizer="nltk",
+        tokenizer_kwds=None,
+        token_contractor="conservative",
+        token_contractor_kwds=None,
+        vectorizer="flat",
+        vectorizer_kwds=None,
         normalize=True,
-        ordered_cooccurrence=True,
+        dedupe_sentences=True,
     ):
         # make sure we pass the before/after as a switch
+
         self.tokenizer = tokenizer
+        self.tokenizer_kwds = tokenizer_kwds
+        self.token_contractor = token_contractor
+        self.token_contractor_kwds = token_contractor_kwds
         self.vectorizer = vectorizer
-        self.info_weight_transformer = info_weight_transformer
-        self.remove_effects_transformer = remove_effects_transformer
+        self.vectorizer_kwds = vectorizer_kwds
+        # Switches
         self.return_normalized = normalize
-        self.ordered_cooccurence = ordered_cooccurrence
+        self.dedupe_sentences = dedupe_sentences
 
     def fit(self, X, y=None, **fit_params):
+        """
+            Learns a good representation of a word as appropriately weighted count of the the
+            words that it co-occurs with.  This representation also takes into account if the
+            word appears before or after our work.
+
+            Parameters
+            ----------
+            X = a sequence of strings
+            This is typically a list of documents making up a corpus.
+
+            Returns
+            ------
+            self
+        """
+        # TOKENIZATION
         # use tokenizer to build list of the sentences in the corpus
         # Word vectorizers are document agnostic.
-        tokens_by_sentence = self.tokenizer.fit_transform(X)
-        # Sparse matrix of tokens occuring BEFORE our token in the sequence
-        # This requires TokenCooccurrenceVectorize to have symmetrize = False
-        # TODO: Should we check for that?
-        token_cooccurence = self.vectorizer.fit_transform(tokens_by_sentence)
-        tokens_after = token_cooccurence.copy()
-        if self.info_weight_transformer is not None:
-            tokens_after = self.info_weight_transformer.fit_transform(tokens_after)
-        if self.remove_effects_transformer is not None:
-            tokens_after = self.remove_effects_transformer.fit_transform(tokens_after)
-
-        # Sparse matrix of tokens occuring AFTER our token in the sequence
-        # Don't need a copy here
-        tokens_before = token_cooccurence.T
-        if self.info_weight_transformer is not None:
-            tokens_before = self.info_weight_transformer.fit_transform(tokens_before)
-        if self.remove_effects_transformer is not None:
-            tokens_before = self.remove_effects_transformer.fit_transform(tokens_before)
-
-        # Take a word to be to concatination of it's before and after co-occurences.
-        self.vocabulary_size_ = len(self.vectorizer.token_dictionary_)
-        # Python>3.6 guarantees key order.
-        self.vocabulary_ = self.vectorizer.token_dictionary_.keys()
-        if self.ordered_cooccurence:
-            self.representation_ = hstack([tokens_before, tokens_after])
-            self.column_dictionary_ = {
-                item[0]: "pre_" + item[1]
-                for item in self.vectorizer.inverse_token_dictionary_.items()
-            }
-            self.column_dictionary_.update(
-                {
-                    item[0] + self.vocabulary_size_: "post_" + item[1]
-                    for item in self.vectorizer.inverse_token_dictionary_.items()
-                }
-            )
-            self.inverse_column_dictionary_ = {
-                item[1]: [0] for item in self.column_dictionary_.items()
-            }
+        self.tokenizer_ = create_processing_pipeline_stage(
+            self.tokenizer, _SENTENCE_TOKENIZERS, self.tokenizer_kwds, "tokenizer"
+        )
+        if self.tokenizer_ is not None:
+            tokens_by_sentence = self.tokenizer_.fit_transform(X)
         else:
-            # Add the two together
-            self.representation_ = tokens_before + tokens_after
-            self.column_dictionary_ = self.vectorizer.token_dictionary_
-            self.inverse_column_dictionary_ = self.vectorizer.inverse_token_dictionary_
+            tokens_by_sentence = X
 
+        # TOKEN CONTRACTOR
+        self.token_contractor_ = create_processing_pipeline_stage(
+            self.token_contractor,
+            _CONTRACTORS,
+            self.token_contractor_kwds,
+            "contractor",
+        )
+        if self.token_contractor_ is not None:
+            tokens_by_sentence = self.token_contractor_.fit_transform(
+                tokens_by_sentence
+            )
+
+        # DEDUPE
+        if self.dedupe_sentences:
+            tokens_by_sentence = tuple(set(tokens_by_sentence))
+
+        # VECTORIZE
+        self.vectorizer_ = create_processing_pipeline_stage(
+            self.vectorizer,
+            _MULTITOKEN_COOCCURRENCE_VECTORIZERS,
+            self.vectorizer_kwds,
+            "MultiTokenCooccurrenceVectorizer",
+        )
+        self.representation_ = self.vectorizer_.fit_transform(tokens_by_sentence)
+
+        # NORMALIZE
         if self.return_normalized:
             self.representation_ = normalize(self.representation_, norm="l1", axis=1)
 
         # For ease of finding we promote the token dictionary to be a full class property.
-        self.token_dictonary_ = self.vectorizer.token_dictionary_
-        self.inverse_token_dictionary_ = self.vectorizer.inverse_token_dictionary_
+        self.token_dictonary_ = self.vectorizer_.token_dictionary_
+        self.inverse_token_dictionary_ = self.vectorizer_.inverse_token_dictionary_
+        self.column_dictionary_ = self.vectorizer_.column_dictionary_
+        self.inverse_column_dictionary_ = self.vectorizer_.inverse_column_dictionary_
+        self.vocabulary_ = self.vectorizer_.vocabulary_
 
         return self
 
@@ -150,8 +244,7 @@ class WordVectorizer(BaseEstimator, TransformerMixin):
         return pd.DataFrame(
             submatrix.todense(),
             columns=[
-                self.inverse_column_dictionary_[x]
-                for x in range(len(self.column_dictionary_))
+                self.column_dictionary_[x] for x in range(len(self.column_dictionary_))
             ],
             index=vocab,
         )
@@ -160,10 +253,18 @@ class WordVectorizer(BaseEstimator, TransformerMixin):
 class DocVectorizer(BaseEstimator, TransformerMixin):
     def __init__(
         self,
-        tokenizer=NLTKTokenizer(),
-        ngram_vectorizer=NgramVectorizer(),
-        info_weight_transformer=InformationWeightTransformer(),
-        remove_effects_transformer=RemoveEffectsTransformer(),
+        tokenizer="nltk",
+        tokenizer_kwds=None,
+        token_contractor="conservative",
+        token_contractor_kwds=None,
+        vectorizer="bow",
+        vectorizer_kwds=None,
+        info_weight_transformer="default",
+        info_weight_transformer_kwds=None,
+        remove_effects_transformer="default",
+        remove_effects_transformer_kwds=None,
+        normalize=True,
+        dedupe_documents=False,
     ):
         """
         A class for converting documents into a fixed width representation.  Useful for
@@ -188,45 +289,38 @@ class DocVectorizer(BaseEstimator, TransformerMixin):
             3) SKLearnTokenizer
             4) StanzaTokenizer
             5) SpaCyTokenizer
-            
+
         ngram_vectorizer = vectorizer.NgramVectorizer (default NgramVectorizer(ngram_size=1))
             Takes an instance of a class which turns sequences of sequences of tokens into
             fixed width representation through counting the occurence of n-grams.
             In the default case this simply counts the number of occurrences of each token.
             This class returns a documents by n-gram sparse matrix of counts.
-            
+
         info_weight_transformer = textmap.transformers.InformationWeightTransformer (default InformationWeightTransformer())
             Takes an instance of a class which re-weights the counts in a sparse matrix.
             It does this by building a low rank model of the probability of a word being contained
             in any document, converting that into information by applying a log and scaling our
             counts by this value.
             If this is set to None this step is skipped in the pipeline.
-            
+
         remove_effect_transformer = textmap.transformer.RemoveEffectsTranformer (default RemoveEffectsTransformer())
             Takes an instance of a class which builds a low rank model for how often we'd expect a completely random word to occur your text
             and correct for this effect.
             If this is set to None this step is skipped in the pipeline.
         """
         self.tokenizer = tokenizer
-        self.ngram_vectorizer = ngram_vectorizer
-        # These are more minor.  I'd be willing to default them to a string to clean
-        # up the docstring help.
+        self.tokenizer_kwds = tokenizer_kwds
+        self.token_contractor = token_contractor
+        self.token_contractor_kwds = token_contractor_kwds
+        self.vectorizer = vectorizer
+        self.vectorizer_kwds = vectorizer_kwds
         self.info_weight_transformer = info_weight_transformer
+        self.info_weight_transformer_kwds = info_weight_transformer_kwds
         self.remove_effects_transformer = remove_effects_transformer
-
-    @property
-    def tokenizer(self):
-        return self._tokenizer
-
-    @tokenizer.setter
-    def tokenizer(self, value):
-        if isinstance(value, BaseTokenizer):
-            self._tokenizer = value
-        else:
-            raise TypeError(
-                "Tokenizer is not an instance of textmap.tokenizers.BaseTokenizer. "
-                "Did you forget to instantiate the tokenizer?"
-            )
+        self.remove_effects_transformer_kwds = remove_effects_transformer_kwds
+        # Switches
+        self.return_normalized = normalize
+        self.dedupe_documents = dedupe_documents
 
     def fit(self, X, y=None, **fit_params):
         """
@@ -241,17 +335,70 @@ class DocVectorizer(BaseEstimator, TransformerMixin):
         -------
         self
         """
-        self.tokenizer.fit(X)
-        tokens_by_doc = self.tokenizer.tokenization_
-        self.representation_ = self.ngram_vectorizer.fit_transform(tokens_by_doc)
-        if self.info_weight_transformer is not None:
-            self.representation_ = self.info_weight_transformer.fit_transform(
-                self.representation_
+        # TOKENIZATION
+        # use tokenizer to build list of the sentences in the corpus
+        # Word vectorizers are document agnostic.
+        self.tokenizer_ = create_processing_pipeline_stage(
+            self.tokenizer, _DOCUMENT_TOKENIZERS, self.tokenizer_kwds, "tokenizer"
+        )
+        if self.tokenizer_ is not None:
+            tokens_by_document = self.tokenizer_.fit_transform(X)
+        else:
+            tokens_by_document = X
+
+        # TOKEN CONTRACTOR
+        self.token_contractor_ = create_processing_pipeline_stage(
+            self.token_contractor,
+            _CONTRACTORS,
+            self.token_contractor_kwds,
+            "contractor",
+        )
+        if self.token_contractor_ is not None:
+            tokens_by_document = self.token_contractor_.fit_transform(
+                tokens_by_document
             )
-        if self.remove_effects_transformer is not None:
-            self.representation_ = self.remove_effects_transformer.fit_transform(
-                self.representation_
-            )
+
+        # DEDUPE
+        #TODO: the index trick I used in UMAP unique=True
+
+        # VECTORIZE
+        self.vectorizer_ = create_processing_pipeline_stage(
+            self.vectorizer,
+            _DOCUMENT_VECTORIZERS,
+            self.vectorizer_kwds,
+            "DocumentVectorizer",
+        )
+        self.representation_ = self.vectorizer_.fit_transform(tokens_by_document)
+
+        # INFO WEIGHT TRANSFORMER
+        self.info_weight_transformer_ = create_processing_pipeline_stage(
+            self.info_weight_transformer,
+            _INFO_WEIGHT_TRANSFORERS,
+            self.info_weight_transformer_kwds,
+            "InformationWeightTransformer",
+        )
+        if self.info_weight_transformer_:
+            self.representation_ = self.info_weight_transformer_.fit_transform(self.representation_)
+
+        # REMOVE EFFECTS TRANSFORMER
+        self.remove_effects_transformer_ = create_processing_pipeline_stage(
+            self.remove_effects_transformer,
+            _REMOVE_EFFECT_TRANSFORMERS,
+            self.remove_effects_transformer_kwds,
+            "RemoveEffectsTransformer",
+        )
+        if self.remove_effects_transformer_:
+            self.representation_ = self.remove_effects_transformer_.fit_transform(self.representation_)
+
+        # NORMALIZE
+        if self.return_normalized:
+            self.representation_ = normalize(self.representation_, norm="l1", axis=1)
+
+        # For ease of finding we promote the token dictionary to be a full class property.
+        self.column_dictionary_ = self.vectorizer_.ngram_dictionary_
+        self.inverse_column_dictionary_ = self.vectorizer_.inverse_ngram_dictionary_
+        self.vocabulary_ = list(self.vectorizer_.ngram_dictionary_.keys())
+
         return self
 
     def fit_transform(self, X, y=None, **fit_params):
@@ -287,11 +434,76 @@ class DocVectorizer(BaseEstimator, TransformerMixin):
         of weighted counts of size number_of_sequences by number of n-grams (or tokens)
 
         """
-        self.tokenizer.fit(X)
-        tokens_by_doc = self.tokenizer.tokenization_
-        token_counts = self.ngram_vectorizer.transform(tokens_by_doc)
-        if self.info_weight_transformer is not None:
-            token_counts = self.info_weight_transformer.transform(token_counts)
-        if self.remove_effects_transformer is not None:
-            token_counts = self.remove_effects_transformer.transform(token_counts)
+        check_is_fitted(self, ["tokenizer_"])
+        tokens_by_doc = self.tokenizer_.fit_transform(X)
+        if self.token_contractor_ is not None:
+            token_counts = self.token_contractor.transform(tokens_by_doc)
+        if self.info_weight_transformer_ is not None:
+            token_counts = self.info_weight_transformer_.transform(token_counts)
+        if self.remove_effects_transformer_ is not None:
+            token_counts = self.remove_effects_transformer_.transform(token_counts)
+        if self.return_normalized:
+            token_counts = normalize(token_counts, norm="l1", axis=1)
         return token_counts
+
+
+class JointVectorizer(BaseEstimator, TransformerMixin):
+    def __init__(
+        self,
+        tokenizer=NLTKTokenizer(),
+        token_contractor=MultiTokenExpressionTransformer(),
+        ngram_vectorizer=NgramVectorizer(),
+        info_weight_transformer=InformationWeightTransformer(),
+        remove_effects_transformer=RemoveEffectsTransformer(),
+        dedupe_docs_for_fit=True,
+    ):
+        """
+        A class for converting documents into a fixed width representation.  Useful for
+        comparing documents with each other.
+        This is done via:
+        1) Tokenization defaults to NLTK but can use stanza, spacy or a custom tokenizer.
+        2) Converts this sequence of tokens into counts of n-grams (default 1-grams).
+        3) Re-weights counts based on how informative the presence of an n-gram is within a document.
+        4) Build a low rank model for how often we'd expect a completely random n-gram to occur your text
+            and correct for this effect.
+
+        Parameters
+        ----------
+        tokenizer = textmap.tokenizers.BaseTokenizer (default NLTKTokenizer)
+            Takes an instantiation of a class that inherits from BaseTokenizer.
+            These are classes which take documents are parse them into individual tokens,
+            then optionally contract frequently co-occuring tokens together into a single
+            token.
+            Examples of such tokenizers can be found in textmap.tokenizers and include:
+            1) NLTKTokenizer
+            2) NLTKTweetTokenizer
+            3) SKLearnTokenizer
+            4) StanzaTokenizer
+            5) SpaCyTokenizer
+
+        ngram_vectorizer = vectorizer.NgramVectorizer (default NgramVectorizer(ngram_size=1))
+            Takes an instance of a class which turns sequences of sequences of tokens into
+            fixed width representation through counting the occurence of n-grams.
+            In the default case this simply counts the number of occurrences of each token.
+            This class returns a documents by n-gram sparse matrix of counts.
+
+        info_weight_transformer = textmap.transformers.InformationWeightTransformer (default InformationWeightTransformer())
+            Takes an instance of a class which re-weights the counts in a sparse matrix.
+            It does this by building a low rank model of the probability of a word being contained
+            in any document, converting that into information by applying a log and scaling our
+            counts by this value.
+            If this is set to None this step is skipped in the pipeline.
+
+        remove_effect_transformer = textmap.transformer.RemoveEffectsTranformer (default RemoveEffectsTransformer())
+            Takes an instance of a class which builds a low rank model for how often we'd expect a completely random word to occur your text
+            and correct for this effect.
+            If this is set to None this step is skipped in the pipeline.
+        """
+
+        self.tokenizer = tokenizer
+        self.ngram_vectorizer = ngram_vectorizer
+        # These are more minor.  I'd be willing to default them to a string to clean
+        # up the docstring help.
+        self.info_weight_transformer = info_weight_transformer
+        self.remove_effects_transformer = remove_effects_transformer
+        self.dedupe_docs_for_fit = dedupe_docs_for_fit
