@@ -159,8 +159,8 @@ class MultiTokenCooccurrenceVectorizer(BaseEstimator, TransformerMixin):
                 token_cooccurence = self.info_weight_transformer_.fit_transform(
                     token_cooccurence
                 )
-            token_cooccurence = normalize(token_cooccurence, norm="l1")
             if self.remove_effects_transformer_ is not None:
+                token_cooccurence = normalize(token_cooccurence, norm="l1")
                 token_cooccurence = self.remove_effects_transformer_.fit_transform(
                     token_cooccurence
                 )
