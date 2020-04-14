@@ -388,7 +388,6 @@ class DocVectorizer(BaseEstimator, TransformerMixin):
             "RemoveEffectsTransformer",
         )
         if self.remove_effects_transformer_:
-            self.representation_ = normalize(self.representation_, norm="l1", axis=1)
             self.representation_ = self.remove_effects_transformer_.fit_transform(self.representation_)
 
         # NORMALIZE
@@ -442,7 +441,6 @@ class DocVectorizer(BaseEstimator, TransformerMixin):
         if self.info_weight_transformer_ is not None:
             token_counts = self.info_weight_transformer_.transform(token_counts)
         if self.remove_effects_transformer_ is not None:
-            token_counts = normalize(token_counts, norm="l1", axis=1)
             token_counts = self.remove_effects_transformer_.transform(token_counts)
         if self.return_normalized:
             token_counts = normalize(token_counts, norm="l1", axis=1)
