@@ -81,10 +81,10 @@ class WordVectorizer(BaseEstimator, TransformerMixin):
         token_contractor_kwds=None,
         vectorizer="flat",
         vectorizer_kwds=None,
-        info_weight_transformer="default",
-        info_weight_transformer_kwds=None,
-        remove_effects_transformer="default",
-        remove_effects_transformer_kwds=None,
+#        info_weight_transformer="default",
+#        info_weight_transformer_kwds=None,
+#        remove_effects_transformer="default",
+#        remove_effects_transformer_kwds=None,
         normalize=True,
         dedupe_sentences=True,
     ):
@@ -100,10 +100,10 @@ class WordVectorizer(BaseEstimator, TransformerMixin):
         # MultiTokenCooccurrenceVectorizer kwds?
         # Or drop it an let folks pass this in vectorizer_kwds
         # (JH prefers dropping it and remove_effects)
-        self.info_weight_transformer = info_weight_transformer
-        self.info_weight_transformer_kwds = info_weight_transformer_kwds
-        self.remove_effects_transformer = remove_effects_transformer
-        self.remove_effects_transformer_kwds = remove_effects_transformer_kwds
+#        self.info_weight_transformer = info_weight_transformer
+#        self.info_weight_transformer_kwds = info_weight_transformer_kwds
+#        self.remove_effects_transformer = remove_effects_transformer
+#        self.remove_effects_transformer_kwds = remove_effects_transformer_kwds
         # Switches
         self.return_normalized = normalize
         self.dedupe_sentences = dedupe_sentences
@@ -248,6 +248,7 @@ class WordVectorizer(BaseEstimator, TransformerMixin):
 
 
 class DocVectorizer(BaseEstimator, TransformerMixin):
+
     def __init__(
         self,
         tokenizer=NLTKTokenizer(),
