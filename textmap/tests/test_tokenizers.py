@@ -92,12 +92,16 @@ def test_stanza_remove_sentencizer():
 @pytest.mark.parametrize("min_token_occurrences", [None, 3])
 @pytest.mark.parametrize("max_token_occurrences", [None, 6])
 @pytest.mark.parametrize("min_ngram_occurrences", [None, 3])
+@pytest.mark.parametrize("min_token_frequency", [None, 0.1])
+@pytest.mark.parametrize("max_token_frequency", [None, 0.1])
 @pytest.mark.parametrize("ignored_tokens", [None, {"foo", "bar"}])
 @pytest.mark.parametrize("excluded_token_regex", [None, r"b\w+"])
 def test_mwe_transformer(
     min_score,
     min_token_occurrences,
     max_token_occurrences,
+    min_token_frequency,
+    max_token_frequency,
     min_ngram_occurrences,
     ignored_tokens,
     excluded_token_regex,
@@ -107,6 +111,8 @@ def test_mwe_transformer(
         min_score=min_score,
         min_token_occurrences=min_token_occurrences,
         max_token_occurrences=max_token_occurrences,
+        min_token_frequency=min_token_frequency,
+        max_token_frequency=max_token_frequency,
         min_ngram_occurrences=min_ngram_occurrences,
         ignored_tokens=ignored_tokens,
         excluded_token_regex=excluded_token_regex,

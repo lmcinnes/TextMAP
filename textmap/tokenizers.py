@@ -97,6 +97,13 @@ class BaseTokenizer(BaseEstimator, TransformerMixin):
         return self.tokenization_
 
 
+## A default NLTK Tokenizer model
+class _nltk_default_(nltk.tokenize.api.TokenizerI):
+
+    def tokenize(self, X):
+        return word_tokenize(X)
+
+
 class NLTKTokenizer(BaseTokenizer):
     """
     Tokenizes via any NLTKTokenizer like class, using sent_tokenize and word_tokenize by default,
@@ -121,8 +128,7 @@ class NLTKTokenizer(BaseTokenizer):
     @nlp.setter
     def nlp(self, model):
         if model == "default":
-            model = nltk.tokenize.api.StringTokenizer()
-            model.tokenize = word_tokenize
+            model = _nltk_default_()
             self._nlp = model
         else:
             self._nlp = model
