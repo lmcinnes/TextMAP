@@ -523,9 +523,9 @@ class MultiTokenExpressionTransformer(BaseEstimator, TransformerMixin):
             self.mtes_.append(new_grams)
 
             contracter = MWETokenizer(new_grams)
-            self.tokenization_ = [
-                contracter.tokenize(doc) for doc in self.tokenization_
-            ]
+            self.tokenization_ = tuple([
+                tuple(contracter.tokenize(doc)) for doc in self.tokenization_
+            ])
 
         return self
 
@@ -537,7 +537,7 @@ class MultiTokenExpressionTransformer(BaseEstimator, TransformerMixin):
         result = X
         for i in range(len(self.mtes_)):
             contracter = MWETokenizer(self.mtes_[i])
-            result = [contracter.tokenize(doc) for doc in result]
+            result = tuple([tuple(contracter.tokenize(doc)) for doc in result])
         return result
 
 #####################################################################

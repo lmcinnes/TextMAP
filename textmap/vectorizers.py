@@ -45,7 +45,9 @@ _CONTRACTORS = {
     "conservative": {"class": MultiTokenExpressionTransformer, "kwds": {}},
 }
 
-
+# We need a few aggressive vocabulary pruning tokenizer defaults
+# It's a bit unfortunate that they are buried deeply in this class.
+# Maybe expose parameters at the top layer and push them down if they don't conflict.
 _MULTITOKEN_COOCCURRENCE_VECTORIZERS = {
     "flat": {
         "class": MultiTokenCooccurrenceVectorizer,
@@ -127,11 +129,14 @@ class WordVectorizer(BaseEstimator, TransformerMixin):
         self.tokenizer_ = create_processing_pipeline_stage(
             self.tokenizer, _TOKENIZERS, self.tokenizer_kwds, "tokenizer"
         )
+        print(self.tokenizer_)
         if self.tokenizer_ is not None:
             tokens_by_sentence = self.tokenizer_.fit_transform(X)
         else:
+            print(f"We shouldn't be here because {self.tokenizer_} isn't none")
             tokens_by_sentence = X
 
+        print(f"{len(tokens_by_sentence)} many sentences")
         # TOKEN CONTRACTOR
         self.token_contractor_ = create_processing_pipeline_stage(
             self.token_contractor,
