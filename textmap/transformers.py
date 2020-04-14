@@ -142,7 +142,7 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
         result = info_weight_matrix(
             X, embedding_, self.model_.components_, self.tokens_per_doc_
         )
-
+        result.eliminate_zeros()
         return result
 
     def fit_transform(self, X, y=None, **fit_params):
@@ -171,7 +171,7 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
         result = info_weight_matrix(
             X, self.model_.embedding_, self.model_.components_, self.tokens_per_doc_
         )
-
+        result.eliminate_zeros()
         return result
 
 
@@ -381,7 +381,7 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
             precision=self.em_precision,
         )
         self.mix_weights_ = weights
-
+        result.eliminate_zeros()
         return result
 
     def fit_transform(self, X, y=None, **fit_params):
@@ -425,6 +425,7 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
             precision=self.em_precision,
         )
         self.mix_weights_ = weights
+        result.eliminate_zeros()
         return result
 
 
