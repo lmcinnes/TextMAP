@@ -461,6 +461,8 @@ class MultiTokenExpressionTransformer(BaseEstimator, TransformerMixin):
         min_score=2 ** 7,
         min_token_occurrences=None,
         max_token_occurrences=None,
+        min_token_frequency=None,
+        max_token_frequency=None,
         min_ngram_occurrences=None,
         ignored_tokens=None,
         excluded_token_regex=r"\W+",
@@ -471,6 +473,8 @@ class MultiTokenExpressionTransformer(BaseEstimator, TransformerMixin):
         self.min_score = min_score
         self.min_token_occurrences = min_token_occurrences
         self.max_token_occurrences = max_token_occurrences
+        self.min_token_frequency = min_token_frequency
+        self.max_token_frequency = max_token_frequency
         self.min_ngram_occurrences = min_ngram_occurrences
         self.ignored_tokens = ignored_tokens
         self.excluded_token_regex = excluded_token_regex
@@ -483,7 +487,7 @@ class MultiTokenExpressionTransformer(BaseEstimator, TransformerMixin):
         criteria set out by the optional parameters).
         """
         self.tokenization_ = X
-
+        n_tokens = sum([len(x) for x in X])
         for i in range(self.max_iterations):
             bigramer = BigramCollocationFinder.from_documents(self.tokenization_)
 
@@ -498,11 +502,23 @@ class MultiTokenExpressionTransformer(BaseEstimator, TransformerMixin):
                 bigramer.apply_word_filter(exclude_fn)
 
             if not self.min_token_occurrences == None:
-                minfreq_fn = lambda w: bigramer.word_fd[w] < self.min_token_occurrences
-                bigramer.apply_word_filter(minfreq_fn)
+                minocc_fn = lambda w: bigramer.word_fd[w] < self.min_token_occurrences
+                bigramer.apply_word_filter(minocc_fn)
 
             if not self.max_token_occurrences == None:
-                maxfreq_fn = lambda w: bigramer.word_fd[w] > self.max_token_occurrences
+                maxocc_fn = lambda w: bigramer.word_fd[w] > self.max_token_occurrences
+                bigramer.apply_word_filter(maxocc_fn)
+
+            if not self.min_token_frequency == None:
+                minfreq_fn = (
+                    lambda w: bigramer.word_fd[w] < self.min_token_frequency * n_tokens
+                )
+                bigramer.apply_word_filter(minfreq_fn)
+
+            if not self.max_token_frequency == None:
+                maxfreq_fn = (
+                    lambda w: bigramer.word_fd[w] > self.max_token_frequency * n_tokens
+                )
                 bigramer.apply_word_filter(maxfreq_fn)
 
             if not self.min_ngram_occurrences == None:
