@@ -28,6 +28,12 @@ test_text = [
     "pok wer pok qwe foo asd foo bar pok wer asd wer pok",
 ]
 
+test_matrix = scipy.sparse.csr_matrix([ [ 1, 2 ,3], [4,5,6], [7,8,9] ])
+test_matrix_zero_row = scipy.sparse.csr_matrix([ [ 1, 2 ,3], [4,5,6], [0,0,0] ])
+test_matrix_zero_row.eliminate_zeros()
+test_matrix_zero_column = scipy.sparse.csr_matrix([ [ 1, 2 ,0], [4,5,0], [7,8,0] ])
+test_matrix_zero_column.eliminate_zeros()
+
 
 def test_docvectorizer_basic():
     vectorizer = DocVectorizer()
