@@ -1,5 +1,5 @@
 import pytest
-
+import numpy as np
 import spacy
 from spacy.lang.en import English
 
@@ -12,8 +12,10 @@ from textmap.tokenizers import (
     SKLearnTokenizer,
     StanzaTokenizer,
 )
-from .test_common import test_text
-from textmap.transformers import MultiTokenExpressionTransformer
+from .test_common import test_text, test_matrix, test_matrix_zero_column, test_matrix_zero_row
+
+from textmap.transformers import MultiTokenExpressionTransformer, RemoveEffectsTransformer, InformationWeightTransformer
+
 
 
 @pytest.mark.parametrize("tokens_by", ["document", "sentence", "sentence by document"])
@@ -121,3 +123,63 @@ def test_mwe_transformer(
     out_transform = mte.transform(tokens)
 
     assert out_fit_transform == out_transform
+
+
+@pytest.mark.parametrize("n_components", [1, 2])
+@pytest.mark.parametrize("model_type", ["pLSA"])
+@pytest.mark.parametrize("em_precision", [1e-3, 1e-4])
+@pytest.mark.parametrize("em_background_prior", [0.1, 10.0])
+@pytest.mark.parametrize("em_threshold", [1e-4, 1e-5])
+@pytest.mark.parametrize("em_prior_strength", [1.0, 10.0])
+@pytest.mark.parametrize("normalize", [True, False])
+def test_re_transformer(
+        n_components,
+        model_type,
+        em_precision,
+        em_background_prior,
+        em_threshold,
+        em_prior_strength,
+        normalize,
+):
+    RET = RemoveEffectsTransformer(n_components = n_components,
+        model_type = model_type,
+        em_precision =em_precision,
+        em_background_prior = em_background_prior,
+        em_threshold =em_threshold,
+        em_prior_strength=em_prior_strength,
+        normalize=normalize)
+
+    RET.fit(test_matrix)
+    RET.transform(test_matrix)
+    RET.fit_transform(test_matrix)
+    RET.fit(test_matrix_zero_column)
+    RET.transform(test_matrix_zero_column)
+    RET.fit_transform(test_matrix_zero_column)
+    RET.fit(test_matrix_zero_row)
+    RET.transform(test_matrix_zero_row)
+    RET.fit_transform(test_matrix_zero_row)
+
+
+@pytest.mark.parametrize("n_components", [1, 2])
+@pytest.mark.parametrize("model_type", ["pLSA"])
+def test_iw_transformer(
+        n_components,
+        model_type,
+):
+    RET = InformationWeightTransformer(n_components = n_components,
+        model_type = model_type,
+        )
+
+    RET.fit(test_matrix)
+    RET.transform(test_matrix)
+    RET.fit_transform(test_matrix)
+    RET.fit(test_matrix_zero_column)
+    RET.transform(test_matrix_zero_column)
+    RET.fit_transform(test_matrix_zero_column)
+    RET.fit(test_matrix_zero_row)
+    RET.transform(test_matrix_zero_row)
+    RET.fit_transform(test_matrix_zero_row)
+
+
+
+
