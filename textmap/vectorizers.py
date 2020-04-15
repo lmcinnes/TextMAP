@@ -53,8 +53,11 @@ _CONTRACTORS = {
         "class": MultiTokenExpressionTransformer,
         "kwds": {"max_iterations": 6},
     },
-    #"max_token_frequency": 1e-4
-    "conservative": {"class": MultiTokenExpressionTransformer, "kwds": {"max_iterations": 2}},
+    # "max_token_frequency": 1e-4
+    "conservative": {
+        "class": MultiTokenExpressionTransformer,
+        "kwds": {"max_iterations": 2},
+    },
 }
 
 _DOCUMENT_VECTORIZERS = {
@@ -202,8 +205,8 @@ class WordVectorizer(BaseEstimator, TransformerMixin):
         # For ease of finding we promote the token dictionary to be a full class property.
         self.token_dictonary_ = self.vectorizer_.token_dictionary_
         self.inverse_token_dictionary_ = self.vectorizer_.inverse_token_dictionary_
-        self.column_dictionary_ = self.vectorizer_.column_dictionary_
-        self.inverse_column_dictionary_ = self.vectorizer_.inverse_column_dictionary_
+        self.column_label_dictionary_ = self.vectorizer_.column_label_dictionary_
+        self.column_index_dictionary_ = self.vectorizer_.column_index_dictionary_
         self.vocabulary_ = self.vectorizer_.vocabulary_
 
         return self
@@ -276,7 +279,8 @@ class WordVectorizer(BaseEstimator, TransformerMixin):
         return pd.DataFrame(
             submatrix.todense(),
             columns=[
-                self.column_dictionary_[x] for x in range(len(self.column_dictionary_))
+                self.column_label_dictionary_[x]
+                for x in range(len(self.column_label_dictionary_))
             ],
             index=vocab,
         )
@@ -391,7 +395,7 @@ class DocVectorizer(BaseEstimator, TransformerMixin):
             )
 
         # DEDUPE
-        #TODO: the index trick I used in UMAP unique=True
+        # TODO: the index trick I used in UMAP unique=True
 
         # VECTORIZE
         self.vectorizer_ = create_processing_pipeline_stage(
@@ -410,7 +414,9 @@ class DocVectorizer(BaseEstimator, TransformerMixin):
             "InformationWeightTransformer",
         )
         if self.info_weight_transformer_:
-            self.representation_ = self.info_weight_transformer_.fit_transform(self.representation_)
+            self.representation_ = self.info_weight_transformer_.fit_transform(
+                self.representation_
+            )
 
         # REMOVE EFFECTS TRANSFORMER
         self.remove_effects_transformer_ = create_processing_pipeline_stage(
@@ -420,17 +426,18 @@ class DocVectorizer(BaseEstimator, TransformerMixin):
             "RemoveEffectsTransformer",
         )
         if self.remove_effects_transformer_:
-            self.representation_ = normalize(self.representation_, norm="l1", axis=1)
-            self.representation_ = self.remove_effects_transformer_.fit_transform(self.representation_)
+            self.representation_ = self.remove_effects_transformer_.fit_transform(
+                self.representation_
+            )
 
         # NORMALIZE
         if self.normalize:
             self.representation_ = normalize(self.representation_, norm="l1", axis=1)
 
         # For ease of finding we promote the token dictionary to be a full class property.
-        self.column_dictionary_ = self.vectorizer_.inverse_ngram_dictionary_
-        self.inverse_column_dictionary_ = self.vectorizer_.ngram_dictionary_
-        self.vocabulary_ = list(self.vectorizer_.ngram_dictionary_.keys())
+        self.column_label_dictionary_ = self.vectorizer_.column_label_dictionary_
+        self.column_index_dictionary_ = self.vectorizer_.column_index_dictionary_
+        self.vocabulary_ = list(self.vectorizer_.column_label_dictionary_.keys())
 
         return self
 
@@ -475,7 +482,6 @@ class DocVectorizer(BaseEstimator, TransformerMixin):
         if self.info_weight_transformer_ is not None:
             representation = self.info_weight_transformer_.transform(representation)
         if self.remove_effects_transformer_ is not None:
-            representation = normalize(representation, norm="l1", axis=1)
             representation = self.remove_effects_transformer_.transform(representation)
         if self.normalize:
             representation = normalize(representation, norm="l1", axis=1)

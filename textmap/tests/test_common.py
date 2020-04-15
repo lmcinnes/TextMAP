@@ -28,6 +28,13 @@ test_text = [
     "pok wer pok qwe foo asd foo bar pok wer asd wer pok",
 ]
 
+test_matrix = scipy.sparse.csr_matrix([ [ 1, 2 ,3], [4,5,6], [7,8,9] ])
+test_matrix_zero_row = scipy.sparse.csr_matrix([ [ 1, 2 ,3], [4,5,6], [0,0,0] ])
+test_matrix_zero_row.eliminate_zeros()
+test_matrix_zero_column = scipy.sparse.csr_matrix([ [ 1, 2 ,0], [4,5,0], [7,8,0] ])
+test_matrix_zero_column.eliminate_zeros()
+
+# Should we also test for stanza?  It's failing in Travis.
 @pytest.mark.parametrize("tokenizer", ["nltk", "tweet", "spacy", "sklearn"])
 @pytest.mark.parametrize("token_contractor", ["aggressive", "conservative"])
 @pytest.mark.parametrize("vectorizer", ["bow", "bigram"])
@@ -66,7 +73,7 @@ def test_wordvectorizer_basic(
         normalize=normalize,
         dedupe_sentences=dedupe_sentences,
     )
-    result = model.fit_transform(test_text)
+    result = vectorizer.fit_transform(test_text)
     if vectorizer == "flat":
         assert result.shape == (7, 14)
     if vectorizer == "flat_1_5":

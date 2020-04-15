@@ -144,7 +144,7 @@ class MultiTokenCooccurrenceVectorizer(BaseEstimator, TransformerMixin):
         # TODO: Check to make sure all matrices have the same number of rows and throw
         # informative error.
 
-        self.column_dictionary_ = {}
+        self.column_label_dictionary_ = {}
 
         for i, vectorizer in enumerate(self.vectorizer_list):
             vectorizer_ = create_processing_pipeline_stage(
@@ -160,30 +160,29 @@ class MultiTokenCooccurrenceVectorizer(BaseEstimator, TransformerMixin):
                     token_cooccurence
                 )
             if self.remove_effects_transformer_ is not None:
-                token_cooccurence = normalize(token_cooccurence, norm="l1")
                 token_cooccurence = self.remove_effects_transformer_.fit_transform(
                     token_cooccurence
                 )
 
             if i == 0:
-                self.vocabulary_ = list(vectorizer_.token_dictionary_.keys())
-                self.token_dictionary_ = vectorizer_.token_dictionary_
-                self.inverse_token_dictionary_ = vectorizer_.inverse_token_dictionary_
-                self.vocabulary_size_ = len(vectorizer_.token_dictionary_)
+                self.vocabulary_ = list(vectorizer_.column_label_dictionary_.keys())
+                self.token_dictionary_ = vectorizer_.column_label_dictionary_
+                self.inverse_token_dictionary_ = vectorizer_.column_index_dictionary_
+                self.vocabulary_size_ = len(vectorizer_.column_label_dictionary_)
                 self.representation_ = token_cooccurence
             else:
                 self.representation_ = hstack([self.representation_, token_cooccurence])
 
-            column_dictionary_ = {
+            column_label_dictionary = {
                 (item[0] + i * self.vocabulary_size_): self.vectorizer_names_list_[i]
                 + "_"
                 + item[1]
                 for item in vectorizer_.inverse_token_dictionary_.items()
             }
-            self.column_dictionary_.update(column_dictionary_)
+            self.column_label_dictionary_.update(column_label_dictionary)
 
-        self.inverse_column_dictionary_ = {
-            item[1]: item[0] for item in self.column_dictionary_.items()
+        self.column_index_dictionary_ = {
+            item[1]: item[0] for item in self.column_label_dictionary_.items()
         }
         self.representation_ = self.representation_.tocsr()
         return self
