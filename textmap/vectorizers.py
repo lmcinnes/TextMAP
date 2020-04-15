@@ -53,12 +53,18 @@ _CONTRACTORS = {
         "class": MultiTokenExpressionTransformer,
         "kwds": {"max_iterations": 6},
     },
-    #"max_token_frequency": 1e-4
-    "conservative": {"class": MultiTokenExpressionTransformer, "kwds": {"max_iterations": 2}},
+    # "max_token_frequency": 1e-4
+    "conservative": {
+        "class": MultiTokenExpressionTransformer,
+        "kwds": {"max_iterations": 2},
+    },
 }
 
 _DOCUMENT_VECTORIZERS = {
-    'bow': {'class': NgramVectorizer, 'kwds': {'min_frequency': 1e-5, 'excluded_token_regex': '\W+'}}
+    "bow": {
+        "class": NgramVectorizer,
+        "kwds": {"min_frequency": 1e-5, "excluded_token_regex": "\W+"},
+    }
 }
 
 # We need a few aggressive vocabulary pruning tokenizer defaults
@@ -244,7 +250,8 @@ class WordVectorizer(BaseEstimator, TransformerMixin):
         return pd.DataFrame(
             submatrix.todense(),
             columns=[
-                self.column_dictionary_[x] for x in range(len(self.column_dictionary_))
+                self.column_label_dictionary_[x]
+                for x in range(len(self.column_label_dictionary_))
             ],
             index=vocab,
         )
@@ -359,7 +366,7 @@ class DocVectorizer(BaseEstimator, TransformerMixin):
             )
 
         # DEDUPE
-        #TODO: the index trick I used in UMAP unique=True
+        # TODO: the index trick I used in UMAP unique=True
 
         # VECTORIZE
         self.vectorizer_ = create_processing_pipeline_stage(
@@ -378,7 +385,9 @@ class DocVectorizer(BaseEstimator, TransformerMixin):
             "InformationWeightTransformer",
         )
         if self.info_weight_transformer_:
-            self.representation_ = self.info_weight_transformer_.fit_transform(self.representation_)
+            self.representation_ = self.info_weight_transformer_.fit_transform(
+                self.representation_
+            )
 
         # REMOVE EFFECTS TRANSFORMER
         self.remove_effects_transformer_ = create_processing_pipeline_stage(
@@ -388,7 +397,9 @@ class DocVectorizer(BaseEstimator, TransformerMixin):
             "RemoveEffectsTransformer",
         )
         if self.remove_effects_transformer_:
-            self.representation_ = self.remove_effects_transformer_.fit_transform(self.representation_)
+            self.representation_ = self.remove_effects_transformer_.fit_transform(
+                self.representation_
+            )
 
         # NORMALIZE
         if self.return_normalized:
