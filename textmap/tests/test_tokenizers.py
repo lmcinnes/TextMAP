@@ -135,6 +135,11 @@ def test_mwe_transformer(
 
 @pytest.mark.parametrize("n_components", [1, 2])
 @pytest.mark.parametrize("model_type", ["EnsTop"])
+@pytest.mark.parametrize("em_precision", [1e-4])
+@pytest.mark.parametrize("em_background_prior", [0.1])
+@pytest.mark.parametrize("em_threshold", [1e-4])
+@pytest.mark.parametrize("em_prior_strength", [0.05])
+@pytest.mark.parametrize("normalize", [False])
 def test_enstop_re_transformer(
     n_components,
     model_type,
@@ -163,6 +168,7 @@ def test_enstop_re_transformer(
     RET.fit(test_matrix_zero_row, bootstrap=False)
     RET.transform(test_matrix_zero_row)
     RET.fit_transform(test_matrix_zero_row, bootstrap=False)
+
 
 @pytest.mark.parametrize("n_components", [1, 2])
 @pytest.mark.parametrize("model_type", ["pLSA"])
@@ -199,9 +205,6 @@ def test_re_transformer(
     RET.fit(test_matrix_zero_row)
     RET.transform(test_matrix_zero_row)
     RET.fit_transform(test_matrix_zero_row)
-
-
-
 
 
 @pytest.mark.parametrize("n_components", [1, 2])
