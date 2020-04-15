@@ -3,6 +3,7 @@ import numba
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
 from sklearn.preprocessing import normalize
+import scipy.sparse
 import enstop
 from nltk.collocations import BigramCollocationFinder
 from nltk.metrics import BigramAssocMeasures
@@ -143,6 +144,7 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
             X, embedding_, self.model_.components_, self.tokens_per_doc_
         )
         result.eliminate_zeros()
+
         return result
 
     def fit_transform(self, X, y=None, **fit_params):
@@ -172,6 +174,7 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
             X, self.model_.embedding_, self.model_.components_, self.tokens_per_doc_
         )
         result.eliminate_zeros()
+
         return result
 
 
@@ -185,11 +188,12 @@ def numba_multinomial_em_sparse(
     precision=1e-4,
     low_thresh=1e-5,
     bg_prior=5.0,
+    prior_strength=1.0,
 ):
     result = np.zeros(data.shape[0], dtype=np.float32)
     mix_weights = np.zeros(indptr.shape[0] - 1, dtype=np.float32)
 
-    prior = np.array([1.0, bg_prior])
+    prior = np.array([1.0, bg_prior]) * prior_strength
     mp = 1.0 + 1.0 * np.sum(prior)
 
     for i in range(indptr.shape[0] - 1):
@@ -249,7 +253,13 @@ def numba_multinomial_em_sparse(
 
 
 def multinomial_em_sparse(
-    matrix, background_i, background_j, precision=1e-4, low_thresh=1e-5, bg_prior=5.0
+    matrix,
+    background_i,
+    background_j,
+    precision=1e-4,
+    low_thresh=1e-5,
+    bg_prior=5.0,
+    prior_strength=1.0,
 ):
     result = matrix.tocsr().copy().astype(np.float32)
     new_data, mix_weights = numba_multinomial_em_sparse(
@@ -261,6 +271,7 @@ def multinomial_em_sparse(
         precision,
         low_thresh,
         bg_prior,
+        prior_strength,
     )
     result.data = new_data
 
@@ -280,10 +291,14 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
            * 'pLSA'
            * 'EnsTop'
 
+        normalize = False
+            Return the modified count matrix (default) or the L_1 normalization of each row.
+
         optional EM params:
         * em_precision = 1e-4,
-        * em_threshold = 1e-5,
-        * em_background_prior = 5.0,
+        * em_threshold = 1e-5, (set to zero any values below this)
+        * em_background_prior = 10.0, (a non-negative number)
+        * em_prior_strength = 0.1 (a non-negative number)
 
        """
 
@@ -294,7 +309,8 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
         em_precision=1.0e-4,
         em_background_prior=5.0,
         em_threshold=1.0e-5,
-        normalize = True,
+        em_prior_strength=0.2,
+        normalize=False,
     ):
 
         self.n_components = n_components
@@ -302,6 +318,8 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
         self.em_threshold = em_threshold
         self.em_background_prior = em_background_prior
         self.em_precision = em_precision
+        self.em_prior_strength = em_prior_strength
+
         self.normalize = normalize
 
     def fit(self, X, y=None, **fit_params):
@@ -354,34 +372,24 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
         """
 
         check_is_fitted(self, ["model_"])
-        sums = np.array(X.sum(axis=1))
-        if self.normalize:
-            normalization = lambda X: normalize(X, "l1")
-        else:
-            # Currently the EM only deals with L_1 normalized data but
-            # in future we hope to have it work with general counts.
-            # Note that the the L_1 normalization of a zero row will be all zeros
-            if {np.isclose(a, 0.0) or np.isclose(a, 1.0) for a in sums.T[0]} != {True}:
-                warn(
-                    "L_1 normalization being applied to the input. To avoid this warning in the future apply "
-                    'sklearn.preprocessing.normalize(X, "l1") before calling transform.'
-                )
-                normalization = lambda X: normalize(X, "l1")
-            else:
-                normalization = lambda X: X
-
-        embedding_ = self.model_.transform(X)
+        row_sums = np.array(X.sum(axis=1)).T[0]
+        embedding_ = self.model_.transform(X.astype(np.float32))
 
         result, weights = multinomial_em_sparse(
-            normalization(X),
+            normalize(X, norm="l1"),
             embedding_,
             self.model_.components_,
             low_thresh=self.em_threshold,
             bg_prior=self.em_background_prior,
             precision=self.em_precision,
+            prior_strength=self.em_prior_strength,
         )
         self.mix_weights_ = weights
+        if not self.normalize:
+            result = scipy.sparse.diags(row_sums * weights) * result
+
         result.eliminate_zeros()
+
         return result
 
     def fit_transform(self, X, y=None, **fit_params):
@@ -405,27 +413,24 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
         """
 
         self.fit(X, **fit_params)
-        sums = np.array(X.sum(axis=1))
-        # Note that the the L_1 normalization of a zero row will be all zeros
-        if {np.isclose(a, 0.0) or np.isclose(a, 1.0) for a in sums.T[0]} != {True}:
-            warn(
-                "L_1 normalization being applied to the input. To avoid this warning in the future, apply "
-                'sklearn.preprocessing.normalize(X, "l1") before calling transform.'
-            )
-            normalization = lambda X: normalize(X, "l1")
-        else:
-            normalization = lambda X: X
+        row_sums = np.array(X.sum(axis=1)).T[0]
+        embedding_ = self.model_.embedding_
 
         result, weights = multinomial_em_sparse(
-            normalization(X),
-            self.model_.embedding_,
+            normalize(X, norm="l1"),
+            embedding_,
             self.model_.components_,
             low_thresh=self.em_threshold,
             bg_prior=self.em_background_prior,
             precision=self.em_precision,
+            prior_strength=self.em_prior_strength,
         )
         self.mix_weights_ = weights
+        if not self.normalize:
+            result = scipy.sparse.diags(row_sums * weights) * result
+
         result.eliminate_zeros()
+
         return result
 
 
@@ -540,9 +545,9 @@ class MultiTokenExpressionTransformer(BaseEstimator, TransformerMixin):
             self.mtes_.append(new_grams)
 
             contracter = MWETokenizer(new_grams)
-            self.tokenization_ = tuple([
-                tuple(contracter.tokenize(doc)) for doc in self.tokenization_
-            ])
+            self.tokenization_ = tuple(
+                [tuple(contracter.tokenize(doc)) for doc in self.tokenization_]
+            )
 
         return self
 
@@ -557,21 +562,22 @@ class MultiTokenExpressionTransformer(BaseEstimator, TransformerMixin):
             result = tuple([tuple(contracter.tokenize(doc)) for doc in result])
         return result
 
+
 #####################################################################
 class FeatureBasisTransformer(BaseEstimator, TransformerMixin):
     """
     This is really just a word vectorizer followed by a PLSA or SVD.
     """
-    def __init__(self,
-                 token_vectorizer = 'default',
-                 transformer ='plsa',
-                 ):
-        if(token_vectorizer=='default'):
+
+    def __init__(
+        self, token_vectorizer="default", transformer="plsa",
+    ):
+        if token_vectorizer == "default":
             self.token_vectorizer = WordVectorizer()
         else:
             self.token_vectorizer = token_vectorizer
-        if(transformer=='plsa'):
-            #This might increase your dimensionality
+        if transformer == "plsa":
+            # This might increase your dimensionality
             self.transformer = PLSA(n_components=300)
         else:
             self.transformer = transformer
@@ -602,7 +608,7 @@ class FeatureBasisTransformer(BaseEstimator, TransformerMixin):
         -------
         scipy.sparse.matrix
         """
-        self.fit(X, y **fit_params)
+        self.fit(X, y ** fit_params)
         return self.representation_
 
     def transform(self, X):
@@ -617,4 +623,3 @@ class FeatureBasisTransformer(BaseEstimator, TransformerMixin):
         self
         """
         pass
-
