@@ -170,8 +170,8 @@ class WordVectorizer(BaseEstimator, TransformerMixin):
         # For ease of finding we promote the token dictionary to be a full class property.
         self.token_dictonary_ = self.vectorizer_.token_dictionary_
         self.inverse_token_dictionary_ = self.vectorizer_.inverse_token_dictionary_
-        self.column_dictionary_ = self.vectorizer_.column_dictionary_
-        self.inverse_column_dictionary_ = self.vectorizer_.inverse_column_dictionary_
+        self.column_label_dictionary_ = self.vectorizer_.column_label_dictionary_
+        self.column_index_dictionary_ = self.vectorizer_.column_index_dictionary_
         self.vocabulary_ = self.vectorizer_.vocabulary_
 
         return self
@@ -395,9 +395,9 @@ class DocVectorizer(BaseEstimator, TransformerMixin):
             self.representation_ = normalize(self.representation_, norm="l1", axis=1)
 
         # For ease of finding we promote the token dictionary to be a full class property.
-        self.column_dictionary_ = self.vectorizer_.ngram_dictionary_
-        self.inverse_column_dictionary_ = self.vectorizer_.inverse_ngram_dictionary_
-        self.vocabulary_ = list(self.vectorizer_.ngram_dictionary_.keys())
+        self.column_label_dictionary_ = self.vectorizer_.column_label_dictionary_
+        self.column_index_dictionary_ = self.vectorizer_.column_index_dictionary_
+        self.vocabulary_ = list(self.vectorizer_.column_label_dictionary_.keys())
 
         return self
 
