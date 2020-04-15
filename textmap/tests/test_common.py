@@ -34,13 +34,30 @@ test_matrix_zero_row.eliminate_zeros()
 test_matrix_zero_column = scipy.sparse.csr_matrix([ [ 1, 2 ,0], [4,5,0], [7,8,0] ])
 test_matrix_zero_column.eliminate_zeros()
 
-
-def test_docvectorizer_basic():
-    vectorizer = DocVectorizer()
-    result = vectorizer.fit(test_text)
-
-
 # Should we also test for stanza?  It's failing in Travis.
+@pytest.mark.parametrize("tokenizer", ["nltk", "tweet", "spacy", "sklearn"])
+@pytest.mark.parametrize("token_contractor", ["aggressive", "conservative"])
+@pytest.mark.parametrize("vectorizer", ["bow", "bigram"])
+@pytest.mark.parametrize("normalize", [True, False])
+def test_docvectorizer_basic(
+        tokenizer, token_contractor, vectorizer, normalize
+):
+    model = DocVectorizer(
+        tokenizer=tokenizer,
+        token_contractor=token_contractor,
+        vectorizer=vectorizer,
+        normalize=normalize,
+    )
+    result = model.fit_transform(test_text)
+    transform = model.transform(test_text)
+    assert (result != transform).nnz == 0
+    if vectorizer == 'bow':
+        assert result.shape == (5, 7)
+    if vectorizer == 'bigram':
+        assert result.shape == (5, 19)
+
+
+# Should we also test for stanza?  Stanza's pytorch dependency makes this hard.
 @pytest.mark.parametrize("tokenizer", ["nltk", "tweet", "spacy", "sklearn"])
 @pytest.mark.parametrize("token_contractor", ["aggressive", "conservative"])
 @pytest.mark.parametrize("vectorizer", ["flat", "flat_1_5"])
@@ -49,14 +66,14 @@ def test_docvectorizer_basic():
 def test_wordvectorizer_basic(
     tokenizer, token_contractor, vectorizer, normalize, dedupe_sentences
 ):
-    vectorizer = WordVectorizer(
+    model = WordVectorizer(
         tokenizer=tokenizer,
         token_contractor=token_contractor,
         vectorizer=vectorizer,
         normalize=normalize,
         dedupe_sentences=dedupe_sentences,
     )
-    result = vectorizer.fit_transform(test_text)
+    result = model.fit_transform(test_text)
     if vectorizer == "flat":
         assert result.shape == (7, 14)
     if vectorizer == "flat_1_5":
