@@ -73,7 +73,7 @@ def test_wordvectorizer_basic(
         normalize=normalize,
         dedupe_sentences=dedupe_sentences,
     )
-    result = vectorizer.fit_transform(test_text)
+    result = model.fit_transform(test_text)
     if vectorizer == "flat":
         assert result.shape == (7, 14)
     if vectorizer == "flat_1_5":

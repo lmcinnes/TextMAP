@@ -173,13 +173,13 @@ class MultiTokenCooccurrenceVectorizer(BaseEstimator, TransformerMixin):
             else:
                 self.representation_ = hstack([self.representation_, token_cooccurence])
 
-            column_label_dictionary = {
+            column_label_dictionary_ = {
                 (item[0] + i * self.vocabulary_size_): self.vectorizer_names_list_[i]
                 + "_"
                 + item[1]
-                for item in vectorizer_.inverse_token_dictionary_.items()
+                for item in vectorizer_.column_index_dictionary_.items()
             }
-            self.column_label_dictionary_.update(column_label_dictionary)
+            self.column_label_dictionary_.update(column_label_dictionary_)
 
         self.column_index_dictionary_ = {
             item[1]: item[0] for item in self.column_label_dictionary_.items()
