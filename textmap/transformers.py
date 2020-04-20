@@ -11,7 +11,9 @@ from nltk.tokenize import MWETokenizer
 import re
 from warnings import warn
 
+
 EPS = 1e-11
+
 
 
 @numba.njit()
@@ -563,63 +565,3 @@ class MultiTokenExpressionTransformer(BaseEstimator, TransformerMixin):
         return result
 
 
-#####################################################################
-class FeatureBasisTransformer(BaseEstimator, TransformerMixin):
-    """
-    This is really just a word vectorizer followed by a PLSA or SVD.
-    """
-
-    def __init__(
-        self, token_vectorizer="default", transformer="plsa",
-    ):
-        if token_vectorizer == "default":
-            self.token_vectorizer = WordVectorizer()
-        else:
-            self.token_vectorizer = token_vectorizer
-        if transformer == "plsa":
-            # This might increase your dimensionality
-            self.transformer = PLSA(n_components=300)
-        else:
-            self.transformer = transformer
-
-    def fit(self, X, y=None, **fit_params):
-        """
-
-        Parameters
-        ----------
-        X= scipy.sparse.matrix
-
-        Returns
-        -------
-        self
-        """
-        tokens = self.token_vectorizer.fit_transform(X)
-        representation_ = self.transformer.fit_transform(tokens)
-        return self
-
-    def fit_transform(self, X, y=None, **fit_params):
-        """
-
-        Parameters
-        ----------
-        X= scipy.sparse.matrix
-
-        Returns
-        -------
-        scipy.sparse.matrix
-        """
-        self.fit(X, y ** fit_params)
-        return self.representation_
-
-    def transform(self, X):
-        """
-
-        Parameters
-        ----------
-        X= scipy.sparse.matrix
-
-        Returns
-        -------
-        self
-        """
-        pass

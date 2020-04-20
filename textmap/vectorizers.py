@@ -23,6 +23,8 @@ from scipy.sparse import hstack
 from sklearn.preprocessing import normalize
 import pandas as pd
 from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
+from sklearn.decomposition import TruncatedSVD
+from enstop import PLSA, EnsembleTopics
 
 
 import numpy as np
@@ -196,14 +198,19 @@ class WordVectorizer(BaseEstimator, TransformerMixin):
             self.vectorizer_kwds,
             "MultiTokenCooccurrenceVectorizer",
         )
-        self.representation_ = self.vectorizer_.fit_transform(tokens_by_sentence)
+        if self.vectorizer_ is not None:
+            self.representation_ = self.vectorizer_.fit_transform(tokens_by_sentence)
+        else:
+            #This should only be the case where all the tokenizers are also set to None
+            # and the user passed in a csr matrix.
+            self.representation_ = tokens_by_sentence
 
         # NORMALIZE
         if self.return_normalized:
             self.representation_ = normalize(self.representation_, norm="l1", axis=1)
 
         # For ease of finding we promote the token dictionary to be a full class property.
-        self.token_dictonary_ = self.vectorizer_.token_dictionary_
+        self.token_dictionary_ = self.vectorizer_.token_dictionary_
         self.inverse_token_dictionary_ = self.vectorizer_.inverse_token_dictionary_
         self.column_label_dictionary_ = self.vectorizer_.column_label_dictionary_
         self.column_index_dictionary_ = self.vectorizer_.column_index_dictionary_
@@ -246,7 +253,7 @@ class WordVectorizer(BaseEstimator, TransformerMixin):
         The sparse matrix is the representations of those words
         """
         vocabulary_present = [w for w in words if w in self.vocabulary_]
-        indices = [self.token_dictonary_[word] for word in vocabulary_present]
+        indices = [self.token_dictionary_[word] for word in vocabulary_present]
         return (vocabulary_present, self.representation_[indices, :])
 
     def to_DataFrame(self, max_entries=10000, words=None):
@@ -518,10 +525,149 @@ class DocVectorizer(BaseEstimator, TransformerMixin):
         return pd.DataFrame(
             submatrix.todense(),
             columns=[
-                self.column_dictionary_[x] for x in np.arange(submatrix.shape[1])
+                self.column_index_dictionary_[x] for x in np.arange(submatrix.shape[1])
             ],
             index=documents,
         )
+
+#####################################################################
+# Might cut the vectorizers.py module here and call this something else
+#####################################################################
+
+# Parameter dictionaries for FeatureBasisTransformer
+_WORD_VECTORIZERS = {
+    "default": {"class": WordVectorizer, "kwds": {"vectorizer": "flat_1_5"}},
+    "tokenized": {
+        "class": WordVectorizer,
+        "kwds": {"tokenizer": None, "vectorizer": "flat_1_5"},
+    },
+}
+
+_TRANSFORMERS = {
+    # "tsvd": {"class": TruncatedSVD, "kwds": {"n_components": 50}},
+    # "plsa": {"class": PLSA, "kwds": {"n_components": 50}},
+    # "ensemble": {"class": EnsembleTopics, "kwds": {"n_components": 50}},
+    "tsvd": {"class": TruncatedSVD, "kwds": {}},
+    "plsa": {"class": PLSA, "kwds": {}},
+    "ensemble": {"class": EnsembleTopics, "kwds": {}},
+}
+
+class FeatureBasisTransformer(BaseEstimator, TransformerMixin):
+    """
+    Applies a metric over your features and learns a change of basis that will approximate this distance.
+    """
+
+    def __init__(
+        self,
+        vectorizer="default",
+        vectorizer_kwds=None,
+        transformer="plsa",
+        transformer_kwds=None,
+        n_components=10,
+    ):
+        self.vectorizer = vectorizer
+        self.vectorizer_kwds = vectorizer_kwds
+        self.transformer = transformer
+        self.transformer_kwds = transformer_kwds
+        self.n_components = n_components
+
+    def fit(self, X, y=None, **fit_params):
+        """
+        Applies a metric over your features and learns a change of basis that will approximate this distance.
+
+        Parameters
+        ----------
+        X: a sequence of sequences of tokens.
+            This can be any input acceptalbe by the vectorizer
+        Returns
+        -------
+        self
+        """
+        # Induce a similarity over your Features
+        self.vectorizer_ = create_processing_pipeline_stage(
+            self.vectorizer, _WORD_VECTORIZERS, self.vectorizer_kwds, "WordVectorizer"
+        )
+        self.basis_transformer_ = self.vectorizer_.fit_transform(X)
+
+        # Find a low dimensional (ideally linear) representation of this
+        # for easy application to your features.
+
+        # n_components as set in the init has precedence over any other.
+        # This is a bit inelegant.  Suggestions?
+        if self.transformer_kwds is None:
+            self.transformer_kwds_ = {}
+        else:
+            self.transformer_kwds_ = self.transformer_kwds
+        if self.n_components is not None:
+            self.transformer_kwds_.update({"n_components": self.n_components})
+
+        self.transformer_ = create_processing_pipeline_stage(
+            self.transformer, _TRANSFORMERS, self.transformer_kwds_, "Transformer"
+        )
+        # Your transformer must have a fit_transform, transform and n_components
+        self.original_n_features = self.basis_transformer_.shape[1]
+        if self.transformer_ is not None:
+            if self.transformer_.n_components > self.original_n_features:
+                raise ValueError(
+                    f"Number of components must be less than or equal to the "
+                    f"number of features;  Got {n_components} > {self.original_n_features}."
+                )
+            self.basis_transformer_ = self.transformer_.fit_transform(self.basis_transformer_)
+
+        self.token_dictionary_ = self.vectorizer_.token_dictionary_
+        self.inverse_token_dictionary_ = self.vectorizer_.inverse_token_dictionary_
+        self.tokens_ = list(self.token_dictionary_.keys())
+        return self
+
+    def fit_transform(self, X, y=None, **fit_params):
+        """
+
+        Parameters
+        ----------
+        X= scipy.sparse.matrix
+
+        Returns
+        -------
+        scipy.sparse.matrix
+        """
+        self.fit(X, y, **fit_params)
+        return self.basis_transformer_
+
+    def change_basis(self, X, column_index_dictionary):
+        """
+
+        Parameters
+        ----------
+        X: scipy.sparse.matrix
+            This matrix has a column space which matches the row space learned in .fit
+        column_index_dictionary: dict
+            This is a dictionary mapping from column indices in X to tokens representations.
+            If there are columns that were not present in the .fit then they will be dropped.
+
+        Returns
+        -------
+        self
+        """
+        # Align the columns of X with our transformer
+        # It would likely be cheaper to permute the rows of our transformer rather than the
+        # Columns of our data X.  It's not good practice though.
+        # Copying their data is expensive.
+        # Modifying the model or the data in a transform is wrong.
+        #
+
+        # To guarantee sorted order
+        column_names = [column_index_dictionary[row] for row in range(len(column_index_dictionary))]
+        difference = set(column_names).difference(self.tokens_)
+        # Maybe in future we'll drop the unseen tokens with a warning.
+        if len(difference) > 0:
+            raise ValueError(f"Sorry your feature space contained tokens unseen by your FeatureBasisTrasnforer."
+                             f"Unrecognized tokens: {difference}")
+
+        # Only select the rows from our basis_transformer that correspond to features in our data
+        permutation = [self.token_dictionary_[x] for x in column_names]
+
+        basis_transformer = self.basis_transformer_[permutation, :]
+        return X.dot(basis_transformer)
 
 
 
