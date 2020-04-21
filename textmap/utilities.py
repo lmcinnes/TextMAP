@@ -166,8 +166,8 @@ class MultiTokenCooccurrenceVectorizer(BaseEstimator, TransformerMixin):
 
             if i == 0:
                 self.vocabulary_ = list(vectorizer_.column_label_dictionary_.keys())
-                self.token_dictionary_ = vectorizer_.column_label_dictionary_
-                self.inverse_token_dictionary_ = vectorizer_.column_index_dictionary_
+                self.token_label_dictionary_ = vectorizer_.column_label_dictionary_
+                self.token_index_dictionary_ = vectorizer_.column_index_dictionary_
                 self.vocabulary_size_ = len(vectorizer_.column_label_dictionary_)
                 self.representation_ = token_cooccurence
             else:
