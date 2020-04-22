@@ -36,11 +36,11 @@ from enstop import PLSA
 from .utilities import flatten
 
 _DOCUMENT_TOKENIZERS = {
-    "nltk": {"class": NLTKTokenizer, "kwds": {}},
-    "tweet": {"class": NLTKTweetTokenizer, "kwds": {}},
-    "spacy": {"class": SpacyTokenizer, "kwds": {}},
-    "stanza": {"class": StanzaTokenizer, "kwds": {}},
-    "sklearn": {"class": SKLearnTokenizer, "kwds": {}},
+    "nltk": {"class": NLTKTokenizer, "kwds": {'tokenize_by': 'document'}},
+    "tweet": {"class": NLTKTweetTokenizer, "kwds": {'tokenize_by': 'document'}},
+    "spacy": {"class": SpacyTokenizer, "kwds": {'tokenize_by': 'document'}},
+    "stanza": {"class": StanzaTokenizer, "kwds": {'tokenize_by': 'document'}},
+    "sklearn": {"class": SKLearnTokenizer, "kwds": {'tokenize_by': 'document'}},
 }
 
 _SENTENCE_TOKENIZERS = {
@@ -66,11 +66,11 @@ _CONTRACTORS = {
 _TOKEN_VECTORIZERS = {
     "bow": {
         "class": NgramVectorizer,
-        "kwds": {"min_frequency": 1e-5, "excluded_token_regex": "\W+"},
+        "kwds": {"min_frequency": 1e-5, "excluded_token_regex": '\W+'},
     },
     "bigram": {
         "class": NgramVectorizer,
-        "kwds": {"ngram_size": 2, "min_frequency": 1e-5, "excluded_token_regex": "\W+"},
+        "kwds": {"ngram_size": 2, "min_frequency": 1e-5, "excluded_token_regex": '\W+'},
     },
 }
 
@@ -613,7 +613,7 @@ class FeatureBasisTransformer(BaseEstimator, TransformerMixin):
         if self.transformer_kwds is None:
             self.transformer_kwds_ = {}
         else:
-            self.transformer_kwds_ = self.transformer_kwds
+            self.transformer_kwds_ = self.transformer_kwds.copy()
         if self.n_components is not None:
             self.transformer_kwds_.update({"n_components": self.n_components})
 
@@ -716,6 +716,8 @@ class JointWordDocVectorizer(BaseEstimator, TransformerMixin):
         token_contractor_kwds=None,
         feature_basis_transformer="tokenized",
         feature_basis_transformer_kwds=None,
+        word_cooccurrence_vectorizer = 'symmetric',
+        word_cooccurrence_vectorizer_kwds = None,
         doc_vectorizer="tokenized",
         doc_vectorizer_kwds=None,
         fit_unique=True,
@@ -728,6 +730,8 @@ class JointWordDocVectorizer(BaseEstimator, TransformerMixin):
         self.token_contractor_kwds = token_contractor_kwds
         self.feature_basis_transformer = feature_basis_transformer
         self.feature_basis_transformer_kwds = feature_basis_transformer_kwds
+        self.word_cooccurrence_vectorizer = word_cooccurrence_vectorizer
+        self.word_cooccurrence_vectorizer_kwds = word_cooccurrence_vectorizer_kwds
         self.doc_vectorizer = doc_vectorizer
         self.doc_vectorizer_kwds = doc_vectorizer_kwds
         self.fit_unique = fit_unique
@@ -739,7 +743,7 @@ class JointWordDocVectorizer(BaseEstimator, TransformerMixin):
         if self.tokenizer_kwds is None:
             self.tokenizer_kwds_ = {}
         else:
-            self.tokenizer_kwds_ = self.tokenizer_kwds
+            self.tokenizer_kwds_ = self.tokenizer_kwds.copy()
         self.tokenizer_kwds_.update({"tokenize_by": "sentence by document"})
         self.tokenizer_ = create_processing_pipeline_stage(
             self.tokenizer, _DOCUMENT_TOKENIZERS, self.tokenizer_kwds_, "Tokenizer"
@@ -777,11 +781,14 @@ class JointWordDocVectorizer(BaseEstimator, TransformerMixin):
                 tokens_by_sentence
             )
 
+        # TOKEN COOCCURRENCE VECTORIZER
+        # TODO: THIS
+
         # DOCUMENT EMBEDDING
         if self.doc_vectorizer_kwds is None:
             self.doc_vectorizer_kwds_ = {}
         else:
-            self.doc_vectorizer_kwds_ = self.doc_vectorizer_kwds
+            self.doc_vectorizer_kwds_ = self.doc_vectorizer_kwds.copy()
         self.doc_vectorizer_kwds_.update(
             {"fit_unique": self.fit_unique}
         )
@@ -835,7 +842,7 @@ class JointWordDocVectorizer(BaseEstimator, TransformerMixin):
 
         return self
 
-    def fit_transform(self, X, y=None, **fit_params):
+    def fit_transform(self, X):
         """
 
         Parameters
@@ -848,7 +855,7 @@ class JointWordDocVectorizer(BaseEstimator, TransformerMixin):
         -------
 
         """
-        self.fit(X, y, **fit_params)
+        self.fit(X)
         return self.representation_joint_
 
     def transform(self, X):

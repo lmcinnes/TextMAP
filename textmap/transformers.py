@@ -15,7 +15,6 @@ from warnings import warn
 EPS = 1e-11
 
 
-
 @numba.njit()
 def numba_info_weight_matrix(
     row, col, val, frequencies_i, frequencies_j, tokens_per_doc
@@ -563,5 +562,3 @@ class MultiTokenExpressionTransformer(BaseEstimator, TransformerMixin):
             contracter = MWETokenizer(self.mtes_[i])
             result = tuple([tuple(contracter.tokenize(doc)) for doc in result])
         return result
-
-

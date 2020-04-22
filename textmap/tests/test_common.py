@@ -7,7 +7,7 @@ from textmap import WordMAP
 from textmap import DocMAP
 from textmap import TopicMAP
 
-from textmap.vectorizers import DocVectorizer, WordVectorizer, FeatureBasisTransformer
+from textmap.vectorizers import DocVectorizer, WordVectorizer, FeatureBasisTransformer, JointWordDocVectorizer
 
 import nltk
 
@@ -61,6 +61,18 @@ test_matrix_zero_column.eliminate_zeros()
 
 # TODO: Test that DocVectorizer transform preserves column order and size on new data
 
+def test_debug():
+    pass
+
+
+def test_jointworddocvectorizer():
+    model = JointWordDocVectorizer()
+    result = model.fit_transform(test_text)
+    transform = model.transform(test_text)
+    #assert (result == transform).all()
+    assert result.shape == (12, 10)
+    assert model.n_words_ == 7
+
 def test_featurebasistransformer_tokenized():
     model = FeatureBasisTransformer(word_vectorizer="tokenized", n_components=3)
     result = model.fit_transform(test_text_token_data)
@@ -91,6 +103,7 @@ def test_docvectorizer_basic(tokenizer, token_contractor, vectorizer, normalize)
         normalize=normalize,
     )
     result = model.fit_transform(test_text)
+    assert model.tokenizer_.tokenize_by=='document'
     transform = model.transform(test_text)
     assert (result != transform).nnz == 0
     if vectorizer == "bow":
@@ -115,6 +128,7 @@ def test_wordvectorizer_basic(
         dedupe_sentences=dedupe_sentences,
     )
     result = model.fit_transform(test_text)
+
     if vectorizer == "flat":
         assert result.shape == (7, 14)
     if vectorizer == "flat_1_5":
