@@ -17,9 +17,9 @@ EPS = 1e-11
 
 @numba.njit()
 def fuzz01(val):
-    if np.isclose(val, 1.0):
+    if val >= 1.0:
         return 1.0 - EPS
-    elif np.isclose(val, 0.0):
+    elif val <= 0.0:
         return EPS
     return val
 
