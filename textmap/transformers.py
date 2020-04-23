@@ -428,9 +428,9 @@ def numba_multinomial_em_sparse(
             change_magnitude > precision and mix_param > 1e-2 and mix_param < 1.0 - 1e-2
         ):
 
-            posterior_dist = (current_dist * mix_param) / (
-                current_dist * mix_param + row_background * (1.0 - mix_param)
-            )
+            posterior_dist = (current_dist * mix_param)
+            posterior_dist /= (current_dist * mix_param + row_background * (1.0 - mix_param))
+
 
             current_dist = posterior_dist * row_data
             mix_param = (current_dist.sum() + prior[0]) / mp
