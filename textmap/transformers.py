@@ -15,11 +15,53 @@ from warnings import warn
 EPS = 1e-11
 
 
+@numba.njit()
+def fuzz01(val):
+    if np.isclose(val, 1.0):
+        return 1.0 - EPS
+    elif np.isclose(val, 0.0):
+        return EPS
+    return val
+
 
 @numba.njit()
-def numba_info_weight_matrix(
-    row, col, val, frequencies_i, frequencies_j, tokens_per_doc
-):
+def idf_avg_weight(row, col, val, frequencies_i, frequencies_j, token_counts):
+    """
+
+    For a given rank 1 model frequencies_j[k], the P(token_j in document) = P(token_j) * E(tokens per document[k]).
+    The idf information weight Info_k(token_j) = -log_2(P(token_j in document)). For a given document_i described as a
+    distribution of frequencies_i[i] over k latent models frequencies_j[k], the information weight of the
+    token_j in document_i is the information of the weighted sum of probabilities
+
+    Info_k(token_j) = -log_2(\sum_k frequencies[i,k] P(token_j in document|k))
+                    = -log_2(\sum_k frequencies[i,k] P(token_j|k) * E(tokens per document|k)))
+
+    In the case k=1 and frequencies_j is the distribution of unique tokens in documents, this is the
+    idf weight -log_2(P(token_j in document)).
+
+    The function returns the vals of a coo matrix (row, col, val) scaled by the information weight as calculated above.
+
+    """
+
+    expected_tokens_per_doc = (
+        np.dot(token_counts, frequencies_i) / frequencies_i.shape[0]
+    )
+
+    for idx in range(row.shape[0]):
+        i = row[idx]
+        j = col[idx]
+
+        info_weight = 0.0
+        for k in range(frequencies_i.shape[1]):
+            col_prob = frequencies_j[k, j] * expected_tokens_per_doc[k]
+            info_weight += frequencies_i[i, k] * col_prob
+        val[idx] = val[idx] * -np.log2(fuzz01(info_weight))
+
+    return val
+
+
+@numba.njit()
+def avg_idf_weight(row, col, val, frequencies_i, frequencies_j, token_counts):
     """
 
     For a given rank 1 model frequencies_j[k], the P(token_j in document) = P(token_j) * #(tokens per document[k]).
@@ -28,9 +70,13 @@ def numba_info_weight_matrix(
     document_i is the expected information weight \sum_k frequencies[i,k] Info_k(token_j). In the case k=1 and
     frequencies_j is the distribution of unique tokens in documents, this is the idf weight -log_2(P(token_j in doc)).
 
-    The function returns the coo matrix (row, col, val) scaled by the information weight as calculated above.
+    The function returns the vals of a coo matrix (row, col, val) scaled by the information weight as calculated above.
 
     """
+
+    expected_tokens_per_doc = (
+        np.dot(token_counts, frequencies_i) / frequencies_i.shape[0]
+    )
 
     for idx in range(row.shape[0]):
         i = row[idx]
@@ -38,25 +84,116 @@ def numba_info_weight_matrix(
 
         info_weight = EPS
         for k in range(frequencies_i.shape[1]):
-            col_prob = frequencies_j[k, j] * tokens_per_doc[k]
-            if col_prob > 0.0:
-                info_weight += -frequencies_i[i, k] * np.log2(col_prob)
+            col_prob = fuzz01(frequencies_j[k, j] * expected_tokens_per_doc[k])
+            info_weight += fuzz01(frequencies_i[i, k]) * -np.log2(col_prob)
 
         val[idx] = val[idx] * info_weight
 
     return val
 
 
-def info_weight_matrix(matrix, frequencies_i, frequencies_j, tokens_per_doc):
+# @numba.njit()
+def column_kl_divergence_weight(
+    row, col, val, frequencies_i, frequencies_j, token_counts
+):
+    """
+
+    For a given latent topic model as a prior, we compute the matrix reconstruction
+    (token_counts*frequencies_i).dot(frequencies_j) as a null.  For a given column j, this function computes the
+    KL-divergence between the null model (from the latent topic model reconstruction) and the actual column
+    distribution and records this as the information weight.
+
+    The function returns the vals of a coo matrix (row, col, val) scaled by the information weight as calculated above.
+
+    """
+
+    model_token_sum = np.zeros(frequencies_j.shape[1])
+    actual_token_sum = np.zeros(frequencies_j.shape[1])
+
+    for idx in range(row.shape[0]):
+        i = row[idx]
+        j = col[idx]
+
+        for k in range(frequencies_i.shape[1]):
+            model_token_sum[j] += (
+                frequencies_j[k, j] * frequencies_i[i, k] * token_counts[i]
+            )
+        actual_token_sum[j] = actual_token_sum[j] + val[idx]
+
+    kl = np.zeros(frequencies_j.shape[1]).astype(np.float32)
+    for idx in range(row.shape[0]):
+        i = row[idx]
+        j = col[idx]
+        model_prob = 0.0
+        for k in range(frequencies_i.shape[1]):
+            model_prob += frequencies_j[k, j] * frequencies_i[i, k] * token_counts[i]
+        model_prob = fuzz01(model_prob / model_token_sum[j])
+        actual_prob = fuzz01(val[idx] / actual_token_sum[j])
+
+        kl[j] += actual_prob * np.log2(actual_prob / model_prob)
+
+    for idx in range(row.shape[0]):
+        i = row[idx]
+        j = col[idx]
+        val[idx] = val[idx] * kl[j]
+
+    return val
+
+
+# @numba.njit()
+def bernoulli_kl_divergence_weight(
+    row, col, val, frequencies_i, frequencies_j, token_counts
+):
+    """
+
+    For a given latent topic model as a prior, we compute the matrix reconstruction (frequencies_i).dot(frequencies_j)
+    as a null for each document as multinomial distribution. For a given entry i, j, this function computes the
+    KL-divergence between  the null model for that entry (from the latent topic model reconstruction) and the actual
+    probability in the row-normalized data, when viewed as a Bernoulli trial, i.e.
+
+       KL(p,q) = p log_2(p/q) + (1-p) log ((1-p)/(1-q))
+
+    and records this as the information weight for that entry.
+
+    The function returns the vals of a coo matrix (row, col, val) scaled by the information weight as calculated above.
+
+    """
+
+    for idx in range(row.shape[0]):
+        i = row[idx]
+        j = col[idx]
+
+        model_prob = 0.0
+        for k in range(frequencies_i.shape[1]):
+            model_prob += frequencies_j[k, j] * frequencies_i[i, k]
+
+        actual_prob = fuzz01(val[idx] / token_counts[i])
+        model_prob = fuzz01(model_prob)
+
+        kl = actual_prob * np.log2(actual_prob / model_prob) + (
+            1 - actual_prob
+        ) * np.log2((1 - actual_prob) / (1 - model_prob))
+
+        val[idx] = val[idx] * kl
+
+    return val
+
+
+_INFORMATION_FUNCTIONS = {
+    "average idf": avg_idf_weight,
+    "idf": idf_avg_weight,
+    "column KL": column_kl_divergence_weight,
+    "Bernoulli KL": bernoulli_kl_divergence_weight,
+}
+
+
+def info_weight_matrix(
+    info_function, matrix, frequencies_i, frequencies_j, token_counts
+):
     result = matrix.tocoo().copy()
 
-    new_data = numba_info_weight_matrix(
-        result.row,
-        result.col,
-        result.data,
-        frequencies_i,
-        frequencies_j,
-        tokens_per_doc,
+    new_data = info_function(
+        result.row, result.col, result.data, frequencies_i, frequencies_j, token_counts,
     )
     result.data = new_data
 
@@ -73,15 +210,34 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
 
     model_type: string
         The model used for the low-rank approximation.  To options are
-        * 'pLSA'
+        * 'pLSA' (default)
         * 'EnsTop'
 
+    information_function: callable or str
+        Either a numba.jit function that takes in coo data, model frequencies, and row_sums or a string that calls
+        a predefined option.  The string options are
+        * 'idf' (default)
+        * 'average idf'
+        * 'column KL'
+        * 'Bernoulli KL'
+
+    binarize_matrix: bool (optional)
+        If the information function is callable, this can be set to fit the model on the binarized matrix or the count
+        matrix.  If the information function is a string, this is set internally depending on the function choice.
     """
 
-    def __init__(self, n_components=1, model_type="pLSA"):
+    def __init__(
+        self,
+        n_components=1,
+        model_type="pLSA",
+        information_function="idf",
+        binarize_matrix=True,
+    ):
 
         self.n_components = n_components
         self.model_type = model_type
+        self.information_function = information_function
+        self.binarize_matrix = binarize_matrix
 
     def fit(self, X, y=None, **fit_params):
         """
@@ -89,7 +245,7 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
         Parameters
         ----------
         X: sparse matrix of shape (n_docs, n_words)
-            The data matrix that get's binarized that the model is attempting to fit to.
+            The data matrix (that potentially get's binarized) that the model is attempting to fit to.
 
         y: Ignored
 
@@ -101,22 +257,50 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
         self
 
         """
-        binary_indicator_matrix = (X != 0).astype(np.float32)
-        if self.model_type == "pLSA":
-            self.model_ = enstop.PLSA(n_components=self.n_components, **fit_params).fit(
-                binary_indicator_matrix
-            )
-        elif self.model_type == "EnsTop":
-            self.model_ = enstop.EnsembleTopics(
-                n_components=self.n_components, **fit_params
-            ).fit(binary_indicator_matrix)
+
+        if callable(self.information_function):
+            self._information_function = self.information_function
+        elif self.information_function in _INFORMATION_FUNCTIONS:
+            self._information_function = _INFORMATION_FUNCTIONS[
+                self.information_function
+            ]
         else:
-            raise ValueError("model_type is not supported")
-        token_counts = np.array(binary_indicator_matrix.sum(axis=1))
-        self.tokens_per_doc_ = (
-            token_counts.T.dot(self.model_.embedding_)[0]
-            / self.model_.embedding_.shape[0]
-        )
+            raise ValueError(
+                f"Unrecognized kernel_function; should be callable or one of {_INFORMATION_FUNCTIONS.keys()}"
+            )
+
+        if self.information_function in ["idf", "average idf"]:
+            self.binarize_matrix = True
+        elif self.information_function in ["column KL", "Bernoulli KL"]:
+            self.binarize_matrix = False
+
+        if self.binarize_matrix:
+            binary_indicator_matrix = (X != 0).astype(np.float32)
+            if self.model_type == "pLSA":
+                self.model_ = enstop.PLSA(
+                    n_components=self.n_components, **fit_params
+                ).fit(binary_indicator_matrix)
+            elif self.model_type == "EnsTop":
+                self.model_ = enstop.EnsembleTopics(
+                    n_components=self.n_components, **fit_params
+                ).fit(binary_indicator_matrix)
+            else:
+                raise ValueError("model_type is not supported")
+
+            self.token_counts_ = np.array(binary_indicator_matrix.sum(axis=1)).T[0]
+
+        else:
+
+            if self.model_type == "pLSA":
+                self.model_ = enstop.PLSA(
+                    n_components=self.n_components, **fit_params
+                ).fit(X.astype(np.float32))
+            elif self.model_type == "EnsTop":
+                self.model_ = enstop.EnsembleTopics(
+                    n_components=self.n_components, **fit_params
+                ).fit(X.astype(np.float32))
+            else:
+                raise ValueError("model_type is not supported")
 
         return self
 
@@ -139,11 +323,21 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
 
 
         """
-
         check_is_fitted(self, ["model_"])
-        embedding_ = self.model_.transform((X != 0).astype(np.float32))
+        if self.binarize_matrix:
+            binary_matrix = (X != 0).astype(np.float32)
+            embedding_ = self.model_.transform(binary_matrix)
+            token_counts = np.array(binary_matrix.sum(axis=1)).T[0]
+        else:
+            embedding_ = self.model_.transform(X.astype(np.float32))
+            token_counts = np.array((X.astype(np.float32)).sum(axis=1)).T[0]
+
         result = info_weight_matrix(
-            X, embedding_, self.model_.components_, self.tokens_per_doc_
+            self._information_function,
+            X.astype(np.float32),
+            embedding_,
+            self.model_.components_,
+            token_counts,
         )
         result.eliminate_zeros()
 
@@ -155,8 +349,8 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
         Parameters
         ----------
         X: sparse matrix of shape (n_docs, n_words)
-            The data matrix that get's rescaled by the information weighting and the matrix that gets
-             binarized that the model fits to
+            The data matrix that get's rescaled by the information weighting and the matrix that (potentially gets
+             binarized and) the model fits to
 
         y: Ignored
 
@@ -172,8 +366,18 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
         """
 
         self.fit(X, **fit_params)
+        if self.binarize_matrix:
+            binary_matrix = (X != 0).astype(np.float32)
+            token_counts = np.array(binary_matrix.sum(axis=1)).T[0]
+        else:
+            token_counts = np.array((X.astype(np.float32)).sum(axis=1)).T[0]
+
         result = info_weight_matrix(
-            X, self.model_.embedding_, self.model_.components_, self.tokens_per_doc_
+            self._information_function,
+            X.astype(np.float32),
+            self.model_.embedding_,
+            self.model_.components_,
+            token_counts,
         )
         result.eliminate_zeros()
 
@@ -563,5 +767,3 @@ class MultiTokenExpressionTransformer(BaseEstimator, TransformerMixin):
             contracter = MWETokenizer(self.mtes_[i])
             result = tuple([tuple(contracter.tokenize(doc)) for doc in result])
         return result
-
-
