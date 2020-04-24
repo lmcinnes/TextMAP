@@ -43,11 +43,11 @@ class BaseTokenizer(BaseEstimator, TransformerMixin):
 
     def __init__(self, tokenize_by="document", nlp="default", lower_case=True):
         try:
-            assert tokenize_by in ["document", "sentence", "sentence by document"]
+            assert tokenize_by in ["document", "sentence", "sentence_by_document"]
             self.tokenize_by = tokenize_by
         except AssertionError:
             raise ValueError(
-                'The tokenize_by parameter must be "document",  "sentence", or "sentence by document".'
+                'The tokenize_by parameter must be "document",  "sentence", or "sentence_by_document".'
             )
         if self.tokenize_by == "sentence by document":
             self._flatten = lambda x: tuple(x)
@@ -152,7 +152,7 @@ class NLTKTokenizer(BaseTokenizer):
         else:
             tokenize = lambda d: tuple(self.nlp.tokenize(d))
 
-        if self.tokenize_by in ["sentence", "sentence by document"]:
+        if self.tokenize_by in ["sentence", "sentence_by_document"]:
             self.tokenization_ = self._flatten(
                 [
                     tuple([tuple(tokenize(sent)) for sent in sent_tokenize(doc)])
@@ -164,7 +164,7 @@ class NLTKTokenizer(BaseTokenizer):
             self.tokenization_ = tuple([tuple(tokenize(doc)) for doc in X])
         else:
             raise ValueError(
-                'The tokenize_by parameter must be "document",  "sentence", or "sentence by document".'
+                'The tokenize_by parameter must be "document",  "sentence", or "sentence_by_document".'
             )
         return self
 
@@ -175,7 +175,7 @@ class NLTKTweetTokenizer(NLTKTokenizer):
 
       Parameters
       ----------
-      tokenize_by = 'document' (default), 'sentence' or 'sentence by document'
+      tokenize_by = 'document' (default), 'sentence' or 'sentence_by_document'
         Return a tuple of tuples of tokens per document or a tuple of tuples of tokens per sentence, or a tuple of
         tuples of tuples of tokens per sentence per document.
 
@@ -216,7 +216,7 @@ class SKLearnTokenizer(BaseTokenizer):
 
     Parameters
     ----------
-    tokenize_by = 'document' (default), 'sentence' or 'sentence by document'
+    tokenize_by = 'document' (default), 'sentence' or 'sentence_by_document'
         Return a tuple of tuples of tokens per document or a tuple of tuples of tokens per sentence, or a tuple of
         tuples of tuples of tokens per sentence per document.
 
@@ -255,7 +255,7 @@ class SKLearnTokenizer(BaseTokenizer):
         self
         """
 
-        if self.tokenize_by in ["sentence", "sentence by document"]:
+        if self.tokenize_by in ["sentence", "sentence_by_document"]:
             self.tokenization_ = self._flatten(
                 [
                     tuple([tuple(self.nlp(sent)) for sent in sent_tokenize(doc)])
@@ -268,7 +268,7 @@ class SKLearnTokenizer(BaseTokenizer):
 
         else:
             raise ValueError(
-                'The tokenize_by parameter must be "document",  "sentence", or "sentence by document".'
+                'The tokenize_by parameter must be "document",  "sentence", or "sentence_by_document".'
             )
 
         return self
@@ -279,7 +279,7 @@ class StanzaTokenizer(BaseTokenizer):
 
     Parameters
     ----------
-    tokenize_by = 'document' (default), 'sentence' or 'sentence by document'
+    tokenize_by = 'document' (default), 'sentence' or 'sentence_by_document'
         Return a tuple of tuples of tokens per document or a tuple of tuples of tokens per sentence, or a tuple of
         tuples of tuples of tokens per sentence per document.
 
@@ -299,7 +299,7 @@ class StanzaTokenizer(BaseTokenizer):
         if model == "default":
             # A default Stanza NLP pipeline
             stanza.download(lang="en", processors="tokenize")
-            if self.tokenize_by in ["sentence", "sentence by document"]:
+            if self.tokenize_by in ["sentence", "sentence_by_document"]:
                 BASIC_STANZA_PIPELINE = stanza.Pipeline(processors="tokenize")
             else:
                 BASIC_STANZA_PIPELINE = stanza.Pipeline(
@@ -307,7 +307,7 @@ class StanzaTokenizer(BaseTokenizer):
                 )
             self._nlp = BASIC_STANZA_PIPELINE
         else:
-            if self.tokenize_by in ["sentence", "sentence by document"]:
+            if self.tokenize_by in ["sentence", "sentence_by_document"]:
                 if model.config["tokenize_no_ssplit"]:
                     model.processors["tokenize"].config["no_ssplit"] = False
                     model.config["tokenize_no_ssplit"] = False
@@ -342,7 +342,7 @@ class StanzaTokenizer(BaseTokenizer):
         else:
             token_text = lambda t: t.text
 
-        if self.tokenize_by in ["sentence", "sentence by document"]:
+        if self.tokenize_by in ["sentence", "sentence_by_document"]:
             self.tokenization_ = self._flatten(
                 [
                     tuple(
@@ -363,7 +363,7 @@ class StanzaTokenizer(BaseTokenizer):
             )
         else:
             raise ValueError(
-                'The tokenize_by parameter must be "document",  "sentence", or "sentence by document".'
+                'The tokenize_by parameter must be "document",  "sentence", or "sentence_by_document".'
             )
         return self
 
@@ -373,7 +373,7 @@ class SpacyTokenizer(BaseTokenizer):
 
     Parameters
     ----------
-    tokenize_by = 'document' (default), 'sentence' or 'sentence by document'
+    tokenize_by = 'document' (default), 'sentence' or 'sentence_by_document'
         Return a tuple of tuples of tokens per document or a tuple of tuples of tokens per sentence, or a tuple of
         tuples of tuples of tokens per sentence per document.
 
@@ -393,14 +393,14 @@ class SpacyTokenizer(BaseTokenizer):
         if model == "default":
             # A default spaCy NLP pipeline
             BASIC_SPACY_PIPELINE = spacy.lang.en.English()
-            if self.tokenize_by in ["sentence", "sentence by document"]:
+            if self.tokenize_by in ["sentence", "sentence_by_document"]:
                 BASIC_SPACY_PIPELINE.add_pipe(
                     BASIC_SPACY_PIPELINE.create_pipe("sentencizer"), first=True
                 )
             self._nlp = BASIC_SPACY_PIPELINE
         else:
             # Check that the required components are there
-            if self.tokenize_by in ["sentence", "sentence by document"]:
+            if self.tokenize_by in ["sentence", "sentence_by_document"]:
                 if "sentencizer" not in model.pipe_names:
                     try:
                         model.add_pipe(model.create_pipe("sentencizer"), first=True)
@@ -443,7 +443,7 @@ class SpacyTokenizer(BaseTokenizer):
             token_text = lambda t: t.text
 
         # Tokenize the text
-        if self.tokenize_by in ["sentence", "sentence by document"]:
+        if self.tokenize_by in ["sentence", "sentence_by_document"]:
             self.tokenization_ = self._flatten(
                 [
                     tuple(
@@ -465,7 +465,7 @@ class SpacyTokenizer(BaseTokenizer):
             )
         else:
             raise ValueError(
-                'The tokenize_by parameter must be "document",  "sentence", or "sentence by document".'
+                'The tokenize_by parameter must be "document",  "sentence", or "sentence_by_document".'
             )
 
         return self
