@@ -1,46 +1,40 @@
 from vectorizers import NgramVectorizer, TokenCooccurrenceVectorizer
 from sklearn.base import BaseEstimator, TransformerMixin
-from .transformers import (
-    InformationWeightTransformer,
-    RemoveEffectsTransformer,
-    MultiTokenExpressionTransformer,
-)
+from .transformers import MultiTokenExpressionTransformer
 from .utilities import (
     MultiTokenCooccurrenceVectorizer,
     create_processing_pipeline_stage,
     _INFO_WEIGHT_TRANSFORERS,
     _REMOVE_EFFECT_TRANSFORMERS,
+    _COOCCURRENCE_VECTORIZERS,
+    initialize_kwds,
 )
 from .tokenizers import (
     NLTKTokenizer,
-    BaseTokenizer,
     NLTKTweetTokenizer,
     SpacyTokenizer,
     StanzaTokenizer,
     SKLearnTokenizer,
 )
-#from scipy.sparse import vstack
-from numpy import vstack
+
+import scipy.sparse as sparse
+import numpy as np
 from sklearn.preprocessing import normalize
 import pandas as pd
 from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
 from sklearn.decomposition import TruncatedSVD
-from enstop import PLSA, EnsembleTopics
 
-
-import numpy as np
-
-# TODO: Should we wrap this in a try so we don't have a hard dependency?
 # TruncatedSVD or a variety of other algorithms should also work.
-from enstop import PLSA
+# TODO: should we wrap PLSA in a try and fall back on TruncatedSVD to remove the hard dependency?
+from enstop import PLSA, EnsembleTopics
 from .utilities import flatten
 
 _DOCUMENT_TOKENIZERS = {
-    "nltk": {"class": NLTKTokenizer, "kwds": {'tokenize_by': 'document'}},
-    "tweet": {"class": NLTKTweetTokenizer, "kwds": {'tokenize_by': 'document'}},
-    "spacy": {"class": SpacyTokenizer, "kwds": {'tokenize_by': 'document'}},
-    "stanza": {"class": StanzaTokenizer, "kwds": {'tokenize_by': 'document'}},
-    "sklearn": {"class": SKLearnTokenizer, "kwds": {'tokenize_by': 'document'}},
+    "nltk": {"class": NLTKTokenizer, "kwds": {"tokenize_by": "document"}},
+    "tweet": {"class": NLTKTweetTokenizer, "kwds": {"tokenize_by": "document"}},
+    "spacy": {"class": SpacyTokenizer, "kwds": {"tokenize_by": "document"}},
+    "stanza": {"class": StanzaTokenizer, "kwds": {"tokenize_by": "document"}},
+    "sklearn": {"class": SKLearnTokenizer, "kwds": {"tokenize_by": "document"}},
 }
 
 _SENTENCE_TOKENIZERS = {
@@ -64,13 +58,18 @@ _CONTRACTORS = {
 }
 
 _TOKEN_VECTORIZERS = {
-    "bow": {
-        "class": NgramVectorizer,
-        "kwds": {"min_frequency": 1e-5, "excluded_token_regex": '\W+'},
-    },
+    "bow": {"class": NgramVectorizer, "kwds": {"min_frequency": 1e-5},},
     "bigram": {
         "class": NgramVectorizer,
-        "kwds": {"ngram_size": 2, "min_frequency": 1e-5, "excluded_token_regex": '\W+'},
+        "kwds": {"ngram_size": 2, "min_frequency": 1e-5},
+    },
+    "bow_words": {
+        "class": NgramVectorizer,
+        "kwds": {"min_frequency": 1e-5, "excluded_token_regex": "\W+"},
+    },
+    "bigram_words": {
+        "class": NgramVectorizer,
+        "kwds": {"ngram_size": 2, "min_frequency": 1e-5, "excluded_token_regex": "\W+"},
     },
 }
 
@@ -90,10 +89,10 @@ _MULTITOKEN_COOCCURRENCE_VECTORIZERS = {
         "kwds": {
             "vectorizer_list": ["before", "after", "before", "after"],
             "vectorizer_kwds_list": [
-                {"window_args": (1,)},
-                {"window_args": (1,)},
-                {"window_args": (5,)},
-                {"window_args": (5,)},
+                {"window_radius": 1},
+                {"window_radius": 1},
+                {"window_radius": 5},
+                {"window_radius": 5},
             ],
             "vectorizer_name_list": ["pre_1", "post_1", "pre_5", "post_5"],
         },
@@ -489,7 +488,7 @@ class DocVectorizer(BaseEstimator, TransformerMixin):
         of weighted counts of size number_of_sequences by number of n-grams (or tokens)
 
         """
-        check_is_fitted(self, ["tokenizer_"])
+        check_is_fitted(self, ["vectorizer_"])
         if self.tokenizer_ is not None:
             tokens_by_doc = self.tokenizer_.fit_transform(X)
         else:
@@ -556,9 +555,6 @@ _WORD_VECTORIZERS = {
 }
 
 _TRANSFORMERS = {
-    # "tsvd": {"class": TruncatedSVD, "kwds": {"n_components": 50}},
-    # "plsa": {"class": PLSA, "kwds": {"n_components": 50}},
-    # "ensemble": {"class": EnsembleTopics, "kwds": {"n_components": 50}},
     "tsvd": {"class": TruncatedSVD, "kwds": {}},
     "plsa": {"class": PLSA, "kwds": {}},
     "ensemble": {"class": EnsembleTopics, "kwds": {}},
@@ -696,34 +692,38 @@ class FeatureBasisTransformer(BaseEstimator, TransformerMixin):
 _FEATURE_BASIS_TRANSFORMERS = {
     "tokenized": {
         "class": FeatureBasisTransformer,
-        "kwds": {
-            "word_vectorizer": 'tokenized',
-        }
+        "kwds": {"word_vectorizer": "tokenized",},
     },
 }
 
 _DOCUMENT_VECTORIZERS = {
-    "tokenized": {"class": DocVectorizer, "kwds": {"tokenizer": None, 'token_contractor': None}}
+    "tokenized": {
+        "class": DocVectorizer,
+        "kwds": {"tokenizer": None, "token_contractor": None},
+    }
 }
 
 
 class JointWordDocVectorizer(BaseEstimator, TransformerMixin):
     def __init__(
         self,
+        n_components=20,
         tokenizer="nltk",
         tokenizer_kwds=None,
-        token_contractor='conservative',
+        token_contractor="conservative",
         token_contractor_kwds=None,
         feature_basis_transformer="tokenized",
         feature_basis_transformer_kwds=None,
-        word_cooccurrence_vectorizer = 'symmetric',
-        word_cooccurrence_vectorizer_kwds = None,
+        word_cooccurrence_vectorizer="symmetric",
+        word_cooccurrence_vectorizer_kwds=None,
         doc_vectorizer="tokenized",
         doc_vectorizer_kwds=None,
         fit_unique=True,
+        exclude_token_regex=None,
     ):
         """
         """
+        self.n_components = n_components
         self.tokenizer = tokenizer
         self.tokenizer_kwds = tokenizer_kwds
         self.token_contractor = token_contractor
@@ -735,16 +735,15 @@ class JointWordDocVectorizer(BaseEstimator, TransformerMixin):
         self.doc_vectorizer = doc_vectorizer
         self.doc_vectorizer_kwds = doc_vectorizer_kwds
         self.fit_unique = fit_unique
+        self.exclude_token_regex = exclude_token_regex
 
     def fit(self, X):
         # TOKENIZATION
         # use tokenizer to build list of the sentences in the corpus
         # Force the tokenizer to tokenize into a sentence by document representation.
-        if self.tokenizer_kwds is None:
-            self.tokenizer_kwds_ = {}
-        else:
-            self.tokenizer_kwds_ = self.tokenizer_kwds.copy()
-        self.tokenizer_kwds_.update({"tokenize_by": "sentence by document"})
+        self.tokenizer_kwds_ = initialize_kwds(
+            self.tokenizer_kwds, {"tokenize_by": "sentence by document"}
+        )
         self.tokenizer_ = create_processing_pipeline_stage(
             self.tokenizer, _DOCUMENT_TOKENIZERS, self.tokenizer_kwds_, "Tokenizer"
         )
@@ -755,15 +754,21 @@ class JointWordDocVectorizer(BaseEstimator, TransformerMixin):
 
         # TOKEN CONTRACTION
         self.token_contractor_ = create_processing_pipeline_stage(
-            self.token_contractor, _CONTRACTORS, self.token_contractor_kwds, "Contractor"
+            self.token_contractor,
+            _CONTRACTORS,
+            self.token_contractor_kwds,
+            "Contractor",
         )
         tokens_by_sentence = flatten(tokens_by_sentence_by_document)
         if self.token_contractor_ is not None:
-            tokens_by_sentence = self.token_contractor_.fit_transform(tokens_by_sentence)
-            tokens_by_sentence_by_document = [self.token_contractor_.transform(doc) for doc in tokens_by_sentence_by_document]
-        tokens_by_document = [
-            flatten(doc) for doc in tokens_by_sentence_by_document
-        ]
+            tokens_by_sentence = self.token_contractor_.fit_transform(
+                tokens_by_sentence
+            )
+            tokens_by_sentence_by_document = [
+                self.token_contractor_.transform(doc)
+                for doc in tokens_by_sentence_by_document
+            ]
+        tokens_by_document = [flatten(doc) for doc in tokens_by_sentence_by_document]
 
         # tokens_by_sentence_by_document should be a document by sentence by tokens nested sequence.
         # This will be flattened in two different ways to save on work.
@@ -777,22 +782,33 @@ class JointWordDocVectorizer(BaseEstimator, TransformerMixin):
             "FeatureBasisTransformer",
         )
         if self.feature_basis_transformer_ is not None:
-            self.representation_words_ = self.feature_basis_transformer_.fit_transform(
+            self.feature_basis_transformer_.fit(tokens_by_sentence)
+
+        # WORD COOCCURRENCE VECTORIZER
+        # By default this essentially treats a word a document made up of all the sentences containing that word then
+        # creates a bag of words representation of that document.
+        self.word_cooccurrence_vectorizer_ = create_processing_pipeline_stage(
+            self.word_cooccurrence_vectorizer,
+            _COOCCURRENCE_VECTORIZERS,
+            self.word_cooccurrence_vectorizer_kwds,
+            "Word CooccurrenceVectorizer",
+        )
+        if self.word_cooccurrence_vectorizer_ is not None:
+            self.representation_words_ = self.word_cooccurrence_vectorizer_.fit_transform(
                 tokens_by_sentence
             )
+            if self.feature_basis_transformer_ is not None:
+                self.representation_words_ = self.feature_basis_transformer_.change_basis(
+                    self.representation_words_,
+                    self.word_cooccurrence_vectorizer_.column_index_dictionary_,
+                )
 
-        # TOKEN COOCCURRENCE VECTORIZER
-        # TODO: THIS
-
-        # DOCUMENT EMBEDDING
-        if self.doc_vectorizer_kwds is None:
-            self.doc_vectorizer_kwds_ = {}
-        else:
-            self.doc_vectorizer_kwds_ = self.doc_vectorizer_kwds.copy()
-        self.doc_vectorizer_kwds_.update(
-            {"fit_unique": self.fit_unique}
+        # DOCUMENT VECTORIZER
+        # This should be the same column representation oas the word cooccurrence vectorizer above.
+        # By default this is a bag of words representation.
+        self.doc_vectorizer_kwds_ = initialize_kwds(
+            self.doc_vectorizer_kwds, {"fit_unique": self.fit_unique}
         )
-
         self.doc_vectorizer_ = create_processing_pipeline_stage(
             self.doc_vectorizer,
             _DOCUMENT_VECTORIZERS,
@@ -811,7 +827,17 @@ class JointWordDocVectorizer(BaseEstimator, TransformerMixin):
 
         # Putting docs above words.  Docs are often referenced solely by their index while words have a better
         # token label.  This way docs keep their index.
-        self.representation_joint_ = vstack(
+        if isinstance(self.representation_docs_, sparse.csr.csr_matrix):
+            vstack = sparse.vstack
+        elif isinstance(self.representation_docs_, np.ndarray):
+            vstack = np.vstack
+        else:
+            raise ValueError(
+                f"Your representation must be a numpy array or sparse matrix;"
+                f"representation_docs_ is of type {type(self.representation_docs_)}"
+            )
+
+        self.representation_ = vstack(
             [self.representation_docs_, self.representation_words_]
         )
 
@@ -819,7 +845,7 @@ class JointWordDocVectorizer(BaseEstimator, TransformerMixin):
         # Ugh, this will currently break horribly if you set lots of steps to None.
         # We can either prevent them from doing that for the feature_basis_transformer and doc_vectorizer or...
         # This is returned in the order that the tokens occur as rows in the represenation_words_
-        self.vocabulary_ = self.feature_basis_transformer_.tokens_
+        self.vocabulary_ = self.doc_vectorizer_.vocabulary_
         self.n_words_ = len(self.vocabulary_)
         self.n_documents_ = self.representation_docs_.shape[0]
         self.word_or_doc_ = ["word"] * self.n_words_ + ["doc"] * self.n_documents_
@@ -828,14 +854,17 @@ class JointWordDocVectorizer(BaseEstimator, TransformerMixin):
             index: label for label, index in self.doc_label_dictionary_.items()
         }
         self.word_label_dictionary_ = {
-            f"w_{self.feature_basis_transformer_.token_index_dictionary_[i]}": i
+            f"w_{self.word_cooccurrence_vectorizer_.column_index_dictionary_[i]}": i
             + self.n_documents_
             for i in range(self.n_words_)
         }
         self.word_index_dictionary_ = {
             index: label for label, index in self.word_label_dictionary_.items()
         }
-        self.row_label_dictionary_ = {**self.doc_label_dictionary_, **self.word_label_dictionary_}
+        self.row_label_dictionary_ = {
+            **self.doc_label_dictionary_,
+            **self.word_label_dictionary_,
+        }
         self.row_index_dictionary_ = {
             index: label for label, index in self.row_label_dictionary_.items()
         }
@@ -856,38 +885,88 @@ class JointWordDocVectorizer(BaseEstimator, TransformerMixin):
 
         """
         self.fit(X)
-        return self.representation_joint_
+        return self.representation_
 
     def transform(self, X):
-        check_is_fitted(self, ["tokenizer_"])
-        tokens_by_sentence_by_document = self.tokenizer_.fit_transform(X)
+        check_is_fitted(self, ["doc_vectorizer_"])
+        if self.tokenizer_ is not None:
+            tokens_by_sentence_by_document = self.tokenizer_.fit_transform(X)
+        else:
+            tokens_by_sentence_by_document = X
         if self.token_contractor_ is not None:
-           tokens_by_sentence_by_document = [self.token_contractor_.transform(doc) for doc in
-                                             tokens_by_sentence_by_document]
-        tokens_by_document = tuple([
-           flatten(doc) for doc in tokens_by_sentence_by_document
-        ])
+            tokens_by_sentence_by_document = [
+                self.token_contractor_.transform(doc)
+                for doc in tokens_by_sentence_by_document
+            ]
+        tokens_by_sentence = flatten(tokens_by_sentence_by_document)
+        tokens_by_document = tuple(
+            [flatten(doc) for doc in tokens_by_sentence_by_document]
+        )
+
+        # This restricts to a fixed vocabulary
+        if self.word_cooccurrence_vectorizer_ is not None:
+            representation_words = self.word_cooccurrence_vectorizer_.transform(
+                tokens_by_sentence
+            )
 
         if self.doc_vectorizer_ is not None:
             representation_docs = self.doc_vectorizer_.transform(tokens_by_document)
 
         if self.feature_basis_transformer_ is not None:
             representation_docs = self.feature_basis_transformer_.change_basis(
-                representation_docs,
-                self.doc_vectorizer_.column_index_dictionary_,
+                representation_docs, self.doc_vectorizer_.column_index_dictionary_,
+            )
+            representation_words = self.feature_basis_transformer_.change_basis(
+                representation_words,
+                self.word_cooccurrence_vectorizer_.column_index_dictionary_,
+            )
+
+        if isinstance(representation_docs, sparse.csr.csr_matrix):
+            vstack = sparse.vstack
+        elif isinstance(representation_docs, np.ndarray):
+            vstack = np.vstack
+        else:
+            raise ValueError(
+                f"Your representation must be a numpy array or sparse matrix;"
+                f"representation_docs is of type {type(representation_docs)}"
+            )
+
+        representation = vstack([representation_docs, representation_words])
+        return representation
+
+    def transform_document(self, X):
+        """
+        Vectorized a corpus of documents X into our space he joint space learned via fit while holding the vocabulary constant.
+        Parameters
+        ----------
+        X
+
+        Returns
+        -------
+        A numpy array of size number_of_documents x dimension.
+            This is an embedding of your new documents into the joint space learned via fit.
+        """
+        check_is_fitted(self, ["doc_vectorizer_"])
+        if self.tokenizer_ is not None:
+            tokens_by_sentence_by_document = self.tokenizer_.fit_transform(X)
+        else:
+            tokens_by_sentence_by_document = X
+        if self.token_contractor_ is not None:
+            tokens_by_sentence_by_document = [
+                self.token_contractor_.transform(doc)
+                for doc in tokens_by_sentence_by_document
+            ]
+        tokens_by_document = tuple(
+            [flatten(doc) for doc in tokens_by_sentence_by_document]
+        )
+
+        # This restricts vocabulary
+        if self.doc_vectorizer_ is not None:
+            representation_docs = self.doc_vectorizer_.transform(tokens_by_document)
+
+        if self.feature_basis_transformer_ is not None:
+            representation_docs = self.feature_basis_transformer_.change_basis(
+                representation_docs, self.doc_vectorizer_.column_index_dictionary_,
             )
 
         return representation_docs
-
-        # if self.token_contractor_ is not None:
-        #     tokens_by_doc = self.token_contractor_.transform(tokens_by_doc)
-        # representation = self.vectorizer_.transform(tokens_by_doc)
-        # if self.info_weight_transformer_ is not None:
-        #     representation = self.info_weight_transformer_.transform(representation)
-        # if self.remove_effects_transformer_ is not None:
-        #     representation = self.remove_effects_transformer_.transform(representation)
-        # if self.normalize:
-        #     representation = normalize(representation, norm="l1", axis=1)
-        # return representation
-
-

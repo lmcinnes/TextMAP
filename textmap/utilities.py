@@ -31,6 +31,27 @@ _COOCCURRENCE_VECTORIZERS = {
     },
 }
 
+def initialize_kwds(dictionary, dict2=None):
+    """
+    A simple helper function to initialize our dictionary if it is None and then fold in a second set of keywords.
+    Parameters
+    ----------
+    dictionary = dict
+    dict2 = dict (default {})
+
+    Returns
+    -------
+    A copy of dictionary with dict2 folded into it.
+    """
+    if dictionary is None:
+        kwds = {}
+    else:
+        kwds = dictionary.copy()
+    if dict2 is not None:
+        kwds.update(dict2)
+    return kwds
+
+
 
 def flatten(list_of_seq):
     assert isinstance(list_of_seq, Iterable)
