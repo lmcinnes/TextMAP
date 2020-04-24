@@ -2,17 +2,22 @@ import pytest
 
 from sklearn.utils.estimator_checks import check_estimator
 import scipy.sparse
+import numpy as np
 
 from textmap import WordMAP
 from textmap import DocMAP
 from textmap import TopicMAP
 
-from textmap.vectorizers import DocVectorizer, WordVectorizer, FeatureBasisTransformer
+from textmap.vectorizers import (
+    DocVectorizer,
+    WordVectorizer,
+    FeatureBasisTransformer,
+    JointWordDocVectorizer,
+)
 
 import nltk
 
 nltk.download("punkt")
-
 
 # @pytest.mark.parametrize(
 #     "Estimator", [WordMAP, DocMAP, TopicMAP]
@@ -58,8 +63,31 @@ test_matrix_zero_column = scipy.sparse.csr_matrix([[1, 2, 0], [4, 5, 0], [7, 8, 
 test_matrix_zero_column.eliminate_zeros()
 
 
+# TODO: Add a set of tests for passing in instantiated classes
+
+# TODO: Test that DocVectorizer transform preserves column order and size on new data
+
+def test_joint_nobasistransformer():
+    model = JointWordDocVectorizer(
+        feature_basis_transformer=None, token_contractor_kwds={"min_score": 8}
+    )
+    result = model.fit_transform(test_text)
+    assert isinstance(result, scipy.sparse.csr_matrix)
+    assert result.shape == (12, 7)
+
+
+def test_jointworddocvectorizer():
+    model = JointWordDocVectorizer()
+    result = model.fit_transform(test_text)
+    transform = model.transform(test_text)
+    assert (result == transform).all()
+    assert result.shape == (12, 10)
+    assert model.n_words_ == 7
+    assert isinstance(result, np.ndarray)
+
+
 def test_featurebasistransformer_tokenized():
-    model = FeatureBasisTransformer(vectorizer="tokenized", n_components=3)
+    model = FeatureBasisTransformer(word_vectorizer="tokenized", n_components=3)
     result = model.fit_transform(test_text_token_data)
     assert result.shape == (4, 3)
     # transform = model.transform(test_text_token_data)
@@ -70,6 +98,12 @@ def test_wordvectorizer_todataframe():
     model = WordVectorizer().fit(test_text)
     df = model.to_DataFrame()
     assert df.shape == (7, 14)
+
+
+def test_docvectorizer_todataframe():
+    model = DocVectorizer().fit(test_text)
+    df = model.to_DataFrame()
+    assert df.shape == (5, 7)
 
 
 # Should we also test for stanza?  It's failing in Travis.
@@ -85,18 +119,13 @@ def test_docvectorizer_basic(tokenizer, token_contractor, vectorizer, normalize)
         normalize=normalize,
     )
     result = model.fit_transform(test_text)
+    assert model.tokenizer_.tokenize_by == "document"
     transform = model.transform(test_text)
     assert (result != transform).nnz == 0
     if vectorizer == "bow":
         assert result.shape == (5, 7)
     if vectorizer == "bigram":
         assert result.shape == (5, 19)
-
-
-def test_docvectorizer_todataframe():
-    model = DocVectorizer().fit(test_text)
-    df = model.to_DataFrame()
-    assert df.shape == (5, 7)
 
 
 # Should we also test for stanza?  Stanza's pytorch dependency makes this hard.
@@ -106,7 +135,7 @@ def test_docvectorizer_todataframe():
 @pytest.mark.parametrize("normalize", [True, False])
 @pytest.mark.parametrize("dedupe_sentences", [True, False])
 def test_wordvectorizer_basic(
-    tokenizer, token_contractor, vectorizer, normalize, dedupe_sentences
+        tokenizer, token_contractor, vectorizer, normalize, dedupe_sentences
 ):
     model = WordVectorizer(
         tokenizer=tokenizer,
@@ -116,6 +145,7 @@ def test_wordvectorizer_basic(
         dedupe_sentences=dedupe_sentences,
     )
     result = model.fit_transform(test_text)
+
     if vectorizer == "flat":
         assert result.shape == (7, 14)
     if vectorizer == "flat_1_5":

@@ -31,6 +31,27 @@ _COOCCURRENCE_VECTORIZERS = {
     },
 }
 
+def initialize_kwds(dictionary, dict2=None):
+    """
+    A simple helper function to initialize our dictionary if it is None and then fold in a second set of keywords.
+    Parameters
+    ----------
+    dictionary = dict
+    dict2 = dict (default {})
+
+    Returns
+    -------
+    A copy of dictionary with dict2 folded into it.
+    """
+    if dictionary is None:
+        kwds = {}
+    else:
+        kwds = dictionary.copy()
+    if dict2 is not None:
+        kwds.update(dict2)
+    return kwds
+
+
 
 def flatten(list_of_seq):
     assert isinstance(list_of_seq, Iterable)
@@ -166,8 +187,8 @@ class MultiTokenCooccurrenceVectorizer(BaseEstimator, TransformerMixin):
 
             if i == 0:
                 self.vocabulary_ = list(vectorizer_.column_label_dictionary_.keys())
-                self.token_dictionary_ = vectorizer_.column_label_dictionary_
-                self.inverse_token_dictionary_ = vectorizer_.column_index_dictionary_
+                self.token_label_dictionary_ = vectorizer_.column_label_dictionary_
+                self.token_index_dictionary_ = vectorizer_.column_index_dictionary_
                 self.vocabulary_size_ = len(vectorizer_.column_label_dictionary_)
                 self.representation_ = token_cooccurence
             else:
