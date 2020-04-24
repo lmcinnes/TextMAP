@@ -86,7 +86,7 @@ def test_re_transformer(
 
 @pytest.mark.parametrize("n_components", [1, 2])
 @pytest.mark.parametrize("model_type", ["pLSA", "EnsTop"])
-@pytest.mark.parametrize("information_function", ['idf', 'average idf', 'column KL', 'Bernoulli KL'])
+@pytest.mark.parametrize("information_function", ['idf', 'average_idf', 'column_kl', 'bernoulli_kl'])
 def test_iw_transformer(
     n_components, model_type, information_function
 ):
