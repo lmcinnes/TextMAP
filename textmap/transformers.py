@@ -180,10 +180,10 @@ def bernoulli_kl_divergence_weight(
 
 
 _INFORMATION_FUNCTIONS = {
-    "average idf": avg_idf_weight,
+    "average_idf": avg_idf_weight,
     "idf": idf_avg_weight,
-    "column KL": column_kl_divergence_weight,
-    "Bernoulli KL": bernoulli_kl_divergence_weight,
+    "column_kl": column_kl_divergence_weight,
+    "bernoulli_kl": bernoulli_kl_divergence_weight,
 }
 
 
@@ -217,9 +217,9 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
         Either a numba.jit function that takes in coo data, model frequencies, and row_sums or a string that calls
         a predefined option.  The string options are
         * 'idf' (default)
-        * 'average idf'
-        * 'column KL'
-        * 'Bernoulli KL'
+        * 'average_idf'
+        * 'column_kl'
+        * 'bernoulli_kl'
 
     binarize_matrix: bool (optional)
         If the information function is callable, this can be set to fit the model on the binarized matrix or the count
