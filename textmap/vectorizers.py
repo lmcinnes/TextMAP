@@ -58,7 +58,7 @@ _CONTRACTORS = {
 }
 
 _TOKEN_VECTORIZERS = {
-    "bow": {"class": NgramVectorizer, "kwds": {"min_frequency": 1e-5},},
+    "bow": {"class": NgramVectorizer, "kwds": {"min_frequency": 1e-5}, },
     "bigram": {
         "class": NgramVectorizer,
         "kwds": {"ngram_size": 2, "min_frequency": 1e-5},
@@ -130,15 +130,15 @@ class WordVectorizer(BaseEstimator, TransformerMixin):
     """
 
     def __init__(
-        self,
-        tokenizer="nltk",
-        tokenizer_kwds=None,
-        token_contractor="conservative",
-        token_contractor_kwds=None,
-        vectorizer="flat",
-        vectorizer_kwds=None,
-        normalize=True,
-        dedupe_sentences=True,
+            self,
+            tokenizer="nltk",
+            tokenizer_kwds=None,
+            token_contractor="conservative",
+            token_contractor_kwds=None,
+            vectorizer="flat",
+            vectorizer_kwds=None,
+            normalize=True,
+            dedupe_sentences=True,
     ):
         self.tokenizer = tokenizer
         self.tokenizer_kwds = tokenizer_kwds
@@ -302,19 +302,19 @@ class WordVectorizer(BaseEstimator, TransformerMixin):
 
 class DocVectorizer(BaseEstimator, TransformerMixin):
     def __init__(
-        self,
-        tokenizer="nltk",
-        tokenizer_kwds=None,
-        token_contractor="conservative",
-        token_contractor_kwds=None,
-        vectorizer="bow",
-        vectorizer_kwds=None,
-        info_weight_transformer="default",
-        info_weight_transformer_kwds=None,
-        remove_effects_transformer="default",
-        remove_effects_transformer_kwds=None,
-        normalize=True,
-        fit_unique=False,
+            self,
+            tokenizer="nltk",
+            tokenizer_kwds=None,
+            token_contractor="conservative",
+            token_contractor_kwds=None,
+            vectorizer="bow",
+            vectorizer_kwds=None,
+            info_weight_transformer="default",
+            info_weight_transformer_kwds=None,
+            remove_effects_transformer="default",
+            remove_effects_transformer_kwds=None,
+            normalize=True,
+            fit_unique=False,
     ):
         """
         A class for converting documents into a fixed width representation.  Useful for
@@ -567,12 +567,12 @@ class FeatureBasisTransformer(BaseEstimator, TransformerMixin):
     """
 
     def __init__(
-        self,
-        word_vectorizer="default",
-        word_vectorizer_kwds=None,
-        transformer="plsa",
-        transformer_kwds=None,
-        n_components=10,
+            self,
+            word_vectorizer="default",
+            word_vectorizer_kwds=None,
+            transformer="plsa",
+            transformer_kwds=None,
+            n_components=10,
     ):
         self.word_vectorizer = word_vectorizer
         self.word_vectorizer_kwds = word_vectorizer_kwds
@@ -606,13 +606,7 @@ class FeatureBasisTransformer(BaseEstimator, TransformerMixin):
 
         # n_components as set in the init has precedence over any other.
         # This is a bit inelegant.  Suggestions?
-        if self.transformer_kwds is None:
-            self.transformer_kwds_ = {}
-        else:
-            self.transformer_kwds_ = self.transformer_kwds.copy()
-        if self.n_components is not None:
-            self.transformer_kwds_.update({"n_components": self.n_components})
-
+        self.transformer_kwds_ = initialize_kwds(self.transformer_kwds, {"n_components": self.n_components})
         self.transformer_ = create_processing_pipeline_stage(
             self.transformer, _TRANSFORMERS, self.transformer_kwds_, "Transformer"
         )
@@ -692,7 +686,7 @@ class FeatureBasisTransformer(BaseEstimator, TransformerMixin):
 _FEATURE_BASIS_TRANSFORMERS = {
     "tokenized": {
         "class": FeatureBasisTransformer,
-        "kwds": {"word_vectorizer": "tokenized",},
+        "kwds": {"word_vectorizer": "tokenized", },
     },
 }
 
@@ -706,20 +700,20 @@ _DOCUMENT_VECTORIZERS = {
 
 class JointWordDocVectorizer(BaseEstimator, TransformerMixin):
     def __init__(
-        self,
-        n_components=20,
-        tokenizer="nltk",
-        tokenizer_kwds=None,
-        token_contractor="conservative",
-        token_contractor_kwds=None,
-        feature_basis_transformer="tokenized",
-        feature_basis_transformer_kwds=None,
-        word_cooccurrence_vectorizer="symmetric",
-        word_cooccurrence_vectorizer_kwds=None,
-        doc_vectorizer="tokenized",
-        doc_vectorizer_kwds=None,
-        fit_unique=True,
-        exclude_token_regex=None,
+            self,
+            n_components=20,
+            tokenizer="nltk",
+            tokenizer_kwds=None,
+            token_contractor="conservative",
+            token_contractor_kwds=None,
+            feature_basis_transformer="tokenized",
+            feature_basis_transformer_kwds=None,
+            word_cooccurrence_vectorizer="symmetric",
+            word_cooccurrence_vectorizer_kwds=None,
+            doc_vectorizer="tokenized",
+            doc_vectorizer_kwds=None,
+            fit_unique=True,
+            exclude_token_regex=None,
     ):
         """
         """
@@ -855,7 +849,7 @@ class JointWordDocVectorizer(BaseEstimator, TransformerMixin):
         }
         self.word_label_dictionary_ = {
             f"w_{self.word_cooccurrence_vectorizer_.column_index_dictionary_[i]}": i
-            + self.n_documents_
+                                                                                   + self.n_documents_
             for i in range(self.n_words_)
         }
         self.word_index_dictionary_ = {
