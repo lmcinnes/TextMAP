@@ -671,7 +671,7 @@ class FeatureBasisTransformer(BaseEstimator, TransformerMixin):
         # Maybe in future we'll drop the unseen tokens with a warning.
         if len(difference) > 0:
             raise ValueError(
-                f"Sorry your feature space contained tokens unseen by your FeatureBasisTrasnforer."
+                f"Sorry your feature space contained tokens unseen by your FeatureBasisTransformer."
                 f"Unrecognized tokens: {difference}"
             )
 
