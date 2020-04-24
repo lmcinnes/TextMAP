@@ -63,8 +63,14 @@ _CONTRACTORS = {
 }
 
 _DOCUMENT_VECTORIZERS = {
-    'bow': {'class': NgramVectorizer, 'kwds': {'min_frequency': 1e-5, 'excluded_token_regex': '\W+'}},
-    'bigram': {'class': NgramVectorizer, 'kwds': {'ngram_size': 2, 'min_frequency': 1e-5, 'excluded_token_regex': '\W+'}}
+    "bow": {
+        "class": NgramVectorizer,
+        "kwds": {"min_frequency": 1e-5, "excluded_token_regex": "\W+"},
+    },
+    "bigram": {
+        "class": NgramVectorizer,
+        "kwds": {"ngram_size": 2, "min_frequency": 1e-5, "excluded_token_regex": "\W+"},
+    },
 }
 
 # We need a few aggressive vocabulary pruning tokenizer defaults
@@ -83,10 +89,10 @@ _MULTITOKEN_COOCCURRENCE_VECTORIZERS = {
         "kwds": {
             "vectorizer_list": ["before", "after", "before", "after"],
             "vectorizer_kwds_list": [
-                {"window_args": (1,)},
-                {"window_args": (1,)},
-                {"window_args": (5,)},
-                {"window_args": (5,)},
+                {"window_radius": 1},
+                {"window_radius": 1},
+                {"window_radius": 5},
+                {"window_radius": 5},
             ],
             "vectorizer_name_list": ["pre_1", "post_1", "pre_5", "post_5"],
         },
@@ -122,6 +128,7 @@ class WordVectorizer(BaseEstimator, TransformerMixin):
         Should you remove duplicate sentences.  Repeated sentences (such as signature blocks) often
         don't provide any extra linguistic information about word usage.
     """
+
     def __init__(
         self,
         tokenizer="nltk",
@@ -201,7 +208,7 @@ class WordVectorizer(BaseEstimator, TransformerMixin):
         if self.vectorizer_ is not None:
             self.representation_ = self.vectorizer_.fit_transform(tokens_by_sentence)
         else:
-            #This should only be the case where all the tokenizers are also set to None
+            # This should only be the case where all the tokenizers are also set to None
             # and the user passed in a csr matrix.
             self.representation_ = tokens_by_sentence
 
@@ -530,6 +537,7 @@ class DocVectorizer(BaseEstimator, TransformerMixin):
             index=documents,
         )
 
+
 #####################################################################
 # Might cut the vectorizers.py module here and call this something else
 #####################################################################
@@ -551,6 +559,7 @@ _TRANSFORMERS = {
     "plsa": {"class": PLSA, "kwds": {}},
     "ensemble": {"class": EnsembleTopics, "kwds": {}},
 }
+
 
 class FeatureBasisTransformer(BaseEstimator, TransformerMixin):
     """
@@ -612,7 +621,9 @@ class FeatureBasisTransformer(BaseEstimator, TransformerMixin):
                     f"Number of components must be less than or equal to the "
                     f"number of features;  Got {n_components} > {self.original_n_features}."
                 )
-            self.basis_transformer_ = self.transformer_.fit_transform(self.basis_transformer_)
+            self.basis_transformer_ = self.transformer_.fit_transform(
+                self.basis_transformer_
+            )
 
         self.token_dictionary_ = self.vectorizer_.token_dictionary_
         self.inverse_token_dictionary_ = self.vectorizer_.inverse_token_dictionary_
@@ -656,19 +667,22 @@ class FeatureBasisTransformer(BaseEstimator, TransformerMixin):
         #
 
         # To guarantee sorted order
-        column_names = [column_index_dictionary[row] for row in range(len(column_index_dictionary))]
+        column_names = [
+            column_index_dictionary[row] for row in range(len(column_index_dictionary))
+        ]
         difference = set(column_names).difference(self.tokens_)
         # Maybe in future we'll drop the unseen tokens with a warning.
         if len(difference) > 0:
-            raise ValueError(f"Sorry your feature space contained tokens unseen by your FeatureBasisTrasnforer."
-                             f"Unrecognized tokens: {difference}")
+            raise ValueError(
+                f"Sorry your feature space contained tokens unseen by your FeatureBasisTrasnforer."
+                f"Unrecognized tokens: {difference}"
+            )
 
         # Only select the rows from our basis_transformer that correspond to features in our data
         permutation = [self.token_dictionary_[x] for x in column_names]
 
         basis_transformer = self.basis_transformer_[permutation, :]
         return X.dot(basis_transformer)
-
 
 
 class JointVectorizer(BaseEstimator, TransformerMixin):

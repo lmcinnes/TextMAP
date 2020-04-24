@@ -57,7 +57,7 @@ def create_processing_pipeline_stage(class_to_create, class_dict, kwds, class_ty
         return None
     if class_to_create in class_dict:
         _class = class_dict[class_to_create]["class"]
-        _kwds = class_dict[class_to_create]["kwds"]
+        _kwds = class_dict[class_to_create]["kwds"].copy()
         if kwds is not None:
             _kwds.update(kwds)
         result = _class(**_kwds)
