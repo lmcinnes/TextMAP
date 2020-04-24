@@ -840,7 +840,7 @@ class JointWordDocVectorizer(BaseEstimator, TransformerMixin):
         # We can either prevent them from doing that for the feature_basis_transformer and doc_vectorizer or...
         # This is returned in the order that the tokens occur as rows in the represenation_words_
         self.vocabulary_ = self.doc_vectorizer_.vocabulary_ if self.doc_vectorizer_ else None
-        self.n_words_ = len(self.vocabulary_)
+        self.n_words_ = len(self.vocabulary_) if self.vocabulary_ else 0
         self.n_documents_ = self.representation_docs_.shape[0]
         self.word_or_doc_ = ["word"] * self.n_words_ + ["doc"] * self.n_documents_
         self.doc_label_dictionary_ = {f"d_{i}": i for i in range(self.n_documents_)}
