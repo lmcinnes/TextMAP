@@ -1,4 +1,5 @@
 .. -*- mode: rst -*-
+WARNING: Pre-Alpha Library.  
 
 |Travis|_ |Codecov|_ |CircleCI|_ |ReadTheDocs|_
 

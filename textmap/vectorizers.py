@@ -130,15 +130,15 @@ class WordVectorizer(BaseEstimator, TransformerMixin):
     """
 
     def __init__(
-            self,
-            tokenizer="nltk",
-            tokenizer_kwds=None,
-            token_contractor="conservative",
-            token_contractor_kwds=None,
-            vectorizer="flat",
-            vectorizer_kwds=None,
-            normalize=True,
-            dedupe_sentences=True,
+        self,
+        tokenizer="nltk",
+        tokenizer_kwds=None,
+        token_contractor="conservative",
+        token_contractor_kwds=None,
+        vectorizer="flat",
+        vectorizer_kwds=None,
+        normalize=True,
+        dedupe_sentences=True,
     ):
         self.tokenizer = tokenizer
         self.tokenizer_kwds = tokenizer_kwds
@@ -302,19 +302,19 @@ class WordVectorizer(BaseEstimator, TransformerMixin):
 
 class DocVectorizer(BaseEstimator, TransformerMixin):
     def __init__(
-            self,
-            tokenizer="nltk",
-            tokenizer_kwds=None,
-            token_contractor="conservative",
-            token_contractor_kwds=None,
-            vectorizer="bow",
-            vectorizer_kwds=None,
-            info_weight_transformer="default",
-            info_weight_transformer_kwds=None,
-            remove_effects_transformer="default",
-            remove_effects_transformer_kwds=None,
-            normalize=True,
-            fit_unique=False,
+        self,
+        tokenizer="nltk",
+        tokenizer_kwds=None,
+        token_contractor="conservative",
+        token_contractor_kwds=None,
+        vectorizer="bow",
+        vectorizer_kwds=None,
+        info_weight_transformer="default",
+        info_weight_transformer_kwds=None,
+        remove_effects_transformer="default",
+        remove_effects_transformer_kwds=None,
+        normalize=True,
+        fit_unique=False,
     ):
         """
         A class for converting documents into a fixed width representation.  Useful for
@@ -567,12 +567,12 @@ class FeatureBasisTransformer(BaseEstimator, TransformerMixin):
     """
 
     def __init__(
-            self,
-            word_vectorizer="default",
-            word_vectorizer_kwds=None,
-            transformer="plsa",
-            transformer_kwds=None,
-            n_components=10,
+        self,
+        word_vectorizer="default",
+        word_vectorizer_kwds=None,
+        transformer="plsa",
+        transformer_kwds=None,
+        n_components=10,
     ):
         self.word_vectorizer = word_vectorizer
         self.word_vectorizer_kwds = word_vectorizer_kwds

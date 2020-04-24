@@ -5,6 +5,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from nltk.tokenize import sent_tokenize, word_tokenize, TweetTokenizer
 import nltk.tokenize.api
 from sklearn.feature_extraction.text import CountVectorizer
+import numpy as np
 
 # Optional tokenization packages
 try:
@@ -429,11 +430,19 @@ class SpacyTokenizer(BaseTokenizer):
         self
         """
 
+        # We need to handle data types propers, Spacy does not like numpy.str_ types for example.
+        if type(X[0]) != str:
+            type_cast = lambda X : list(map(str, X))
+        else:
+            type_cast = lambda X : X
+
+        # A function for adjusting the case
         if self.lower_case:
             token_text = lambda t: t.lower_
         else:
             token_text = lambda t: t.text
 
+        # Tokenize the text
         if self.tokenize_by in ["sentence", "sentence by document"]:
             self.tokenization_ = self._flatten(
                 [
@@ -443,7 +452,7 @@ class SpacyTokenizer(BaseTokenizer):
                             for sent in doc.sents
                         ]
                     )
-                    for doc in self.nlp.pipe(X)
+                    for doc in self.nlp.pipe(type_cast(X))
                 ]
             )
 
@@ -451,7 +460,7 @@ class SpacyTokenizer(BaseTokenizer):
             self.tokenization_ = tuple(
                 [
                     tuple([token_text(token) for token in doc])
-                    for doc in self.nlp.pipe(X)
+                    for doc in self.nlp.pipe(type_cast(X))
                 ]
             )
         else:
