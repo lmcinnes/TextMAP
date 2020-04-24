@@ -29,7 +29,7 @@ class BaseTokenizer(BaseEstimator, TransformerMixin):
     
       Parameters
       ----------
-      tokenize_by = 'document' (default), 'sentence' or 'sentence by document'
+      tokenize_by = 'document' (default), 'sentence' or 'sentence_by_document'
         Return a tuple of tuples of tokens per document or a tuple of tuples of tokens per sentence, or a tuple of
         tuples of tuples of tokens per sentence per document.
 
@@ -49,7 +49,7 @@ class BaseTokenizer(BaseEstimator, TransformerMixin):
             raise ValueError(
                 'The tokenize_by parameter must be "document",  "sentence", or "sentence_by_document".'
             )
-        if self.tokenize_by == "sentence by document":
+        if self.tokenize_by == "sentence_by_document":
             self._flatten = lambda x: tuple(x)
         else:
             self._flatten = flatten
@@ -111,7 +111,7 @@ class NLTKTokenizer(BaseTokenizer):
 
       Parameters
       ----------
-      tokenize_by = 'document' (default), 'sentence' or 'sentence by document'
+      tokenize_by = 'document' (default), 'sentence' or 'sentence_by_document'
         Return a tuple of tuples of tokens per document or a tuple of tuples of tokens per sentence, or a tuple of
         tuples of tuples of tokens per sentence per document.
 

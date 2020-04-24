@@ -734,9 +734,9 @@ class JointWordDocVectorizer(BaseEstimator, TransformerMixin):
     def fit(self, X):
         # TOKENIZATION
         # use tokenizer to build list of the sentences in the corpus
-        # Force the tokenizer to tokenize into a sentence by document representation.
+        # Force the tokenizer to tokenize into a sentence_by_document representation.
         self.tokenizer_kwds_ = initialize_kwds(
-            self.tokenizer_kwds, {"tokenize_by": "sentence by document"}
+            self.tokenizer_kwds, {"tokenize_by": "sentence_by_document"}
         )
         self.tokenizer_ = create_processing_pipeline_stage(
             self.tokenizer, _DOCUMENT_TOKENIZERS, self.tokenizer_kwds_, "Tokenizer"
