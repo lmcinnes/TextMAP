@@ -26,7 +26,7 @@ from textmap.transformers import (
 )
 
 
-@pytest.mark.parametrize("tokens_by", ["document", "sentence", "sentence by document"])
+@pytest.mark.parametrize("tokens_by", ["document", "sentence", "sentence_by_document"])
 @pytest.mark.parametrize("lower_case", [True, False])
 def test_sklearn_tokenizer(tokens_by, lower_case):
     tokenizer = SKLearnTokenizer(tokenize_by=tokens_by, lower_case=lower_case).fit(
@@ -34,7 +34,7 @@ def test_sklearn_tokenizer(tokens_by, lower_case):
     )
 
 
-@pytest.mark.parametrize("tokens_by", ["document", "sentence", "sentence by document"])
+@pytest.mark.parametrize("tokens_by", ["document", "sentence", "sentence_by_document"])
 @pytest.mark.parametrize("lower_case", [True, False])
 def test_nltk_tokenizer(tokens_by, lower_case):
     tokenizer = NLTKTokenizer(tokenize_by=tokens_by, lower_case=lower_case).fit(
@@ -42,7 +42,7 @@ def test_nltk_tokenizer(tokens_by, lower_case):
     )
 
 
-@pytest.mark.parametrize("tokens_by", ["document", "sentence", "sentence by document"])
+@pytest.mark.parametrize("tokens_by", ["document", "sentence", "sentence_by_document"])
 @pytest.mark.parametrize("lower_case", [True, False])
 def test_tweet_tokenizer(tokens_by, lower_case):
     tokenizer = NLTKTweetTokenizer(tokenize_by=tokens_by, lower_case=lower_case).fit(
@@ -50,7 +50,7 @@ def test_tweet_tokenizer(tokens_by, lower_case):
     )
 
 
-@pytest.mark.parametrize("tokens_by", ["document", "sentence", "sentence by document"])
+@pytest.mark.parametrize("tokens_by", ["document", "sentence", "sentence_by_document"])
 @pytest.mark.parametrize("lower_case", [True, False])
 def test_spacy_tokenizer(tokens_by, lower_case):
     tokenizer = SpacyTokenizer(tokenize_by=tokens_by, lower_case=lower_case).fit(
