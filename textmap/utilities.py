@@ -10,7 +10,6 @@ from vectorizers import TokenCooccurrenceVectorizer
 from scipy.sparse import hstack
 from sklearn.preprocessing import normalize
 
-
 _INFO_WEIGHT_TRANSFORERS = {
     "default": {"class": InformationWeightTransformer, "kwds": {}},
 }
@@ -31,6 +30,7 @@ _COOCCURRENCE_VECTORIZERS = {
     },
 }
 
+
 def initialize_kwds(dictionary, dict2=None):
     """
     A simple helper function to initialize our dictionary if it is None and then fold in a second set of keywords.
@@ -50,7 +50,6 @@ def initialize_kwds(dictionary, dict2=None):
     if dict2 is not None:
         kwds.update(dict2)
     return kwds
-
 
 
 def flatten(list_of_seq):
@@ -108,14 +107,14 @@ class MultiTokenCooccurrenceVectorizer(BaseEstimator, TransformerMixin):
     """
 
     def __init__(
-        self,
-        vectorizer_list,
-        vectorizer_kwds_list=None,
-        vectorizer_name_list=None,
-        info_weight_transformer="default",
-        info_weight_transformer_kwds=None,
-        remove_effects_transformer="default",
-        remove_effects_transformer_kwds=None,
+            self,
+            vectorizer_list,
+            vectorizer_kwds_list=None,
+            vectorizer_name_list=None,
+            info_weight_transformer="default",
+            info_weight_transformer_kwds=None,
+            remove_effects_transformer="default",
+            remove_effects_transformer_kwds=None,
     ):
         self.vectorizer_list = vectorizer_list
         self.vectorizer_kwds_list = vectorizer_kwds_list
@@ -196,8 +195,8 @@ class MultiTokenCooccurrenceVectorizer(BaseEstimator, TransformerMixin):
 
             column_label_dictionary_ = {
                 (item[0] + i * self.vocabulary_size_): self.vectorizer_names_list_[i]
-                + "_"
-                + item[1]
+                                                       + "_"
+                                                       + item[1]
                 for item in vectorizer_.column_index_dictionary_.items()
             }
             self.column_label_dictionary_.update(column_label_dictionary_)

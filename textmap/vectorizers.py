@@ -58,7 +58,7 @@ _CONTRACTORS = {
 }
 
 _TOKEN_VECTORIZERS = {
-    "bow": {"class": NgramVectorizer, "kwds": {"min_frequency": 1e-5}, },
+    "bow": {"class": NgramVectorizer, "kwds": {"min_frequency": 1e-5},},
     "bigram": {
         "class": NgramVectorizer,
         "kwds": {"ngram_size": 2, "min_frequency": 1e-5},
@@ -385,6 +385,27 @@ class DocVectorizer(BaseEstimator, TransformerMixin):
         -------
         self
         """
+        # VALIDATE INPUT
+        if self.vectorizer is None:
+            raise ValueError(
+                f"Sorry vectorizer must be a valid Vectorizer you passed in {self.vectorizer}"
+            )
+            # TODO: validate parameter strings
+
+        # UNIQUE
+        # This needs to be a sequence of strings (documents)
+        # or a sequence of token sequences (tokenized documents)
+        # Fortunately both cases can be handled via ndarrays.
+        X_ = np.array(X, copy=False)
+        if self.fit_unique:
+            _, self._indices, self._inverse = np.unique(
+                X, return_index=True, return_inverse=True
+            )
+            self._indices = np.sort(self._indices)
+        else:
+            self._indices = np.arange(len(X))
+            self._inverse = self._indices
+
         # TOKENIZATION
         # use tokenizer to build list of the sentences in the corpus
         # Word vectorizers are document agnostic.
@@ -392,9 +413,9 @@ class DocVectorizer(BaseEstimator, TransformerMixin):
             self.tokenizer, _DOCUMENT_TOKENIZERS, self.tokenizer_kwds, "tokenizer"
         )
         if self.tokenizer_ is not None:
-            tokens_by_document = self.tokenizer_.fit_transform(X)
+            tokens_by_document = self.tokenizer_.fit_transform(X_[self._indices])
         else:
-            tokens_by_document = X
+            tokens_by_document = X_[self._indices]
 
         # TOKEN CONTRACTOR
         self.token_contractor_ = create_processing_pipeline_stage(
@@ -407,9 +428,6 @@ class DocVectorizer(BaseEstimator, TransformerMixin):
             tokens_by_document = self.token_contractor_.fit_transform(
                 tokens_by_document
             )
-
-        # DEDUPE
-        # TODO: the index trick I used in UMAP unique=True
 
         # VECTORIZE
         self.vectorizer_ = create_processing_pipeline_stage(
@@ -447,6 +465,9 @@ class DocVectorizer(BaseEstimator, TransformerMixin):
         # NORMALIZE
         if self.normalize:
             self.representation_ = normalize(self.representation_, norm="l1", axis=1)
+
+        # Undo any unique transform that was performed at the beginning of fit.
+        self.representation_ = self.representation_[self._inverse]
 
         # For ease of finding we promote the token dictionary to be a full class property.
         self.column_label_dictionary_ = self.vectorizer_.column_label_dictionary_
@@ -606,7 +627,9 @@ class FeatureBasisTransformer(BaseEstimator, TransformerMixin):
 
         # n_components as set in the init has precedence over any other.
         # This is a bit inelegant.  Suggestions?
-        self.transformer_kwds_ = initialize_kwds(self.transformer_kwds, {"n_components": self.n_components})
+        self.transformer_kwds_ = initialize_kwds(
+            self.transformer_kwds, {"n_components": self.n_components}
+        )
         self.transformer_ = create_processing_pipeline_stage(
             self.transformer, _TRANSFORMERS, self.transformer_kwds_, "Transformer"
         )
@@ -686,7 +709,7 @@ class FeatureBasisTransformer(BaseEstimator, TransformerMixin):
 _FEATURE_BASIS_TRANSFORMERS = {
     "tokenized": {
         "class": FeatureBasisTransformer,
-        "kwds": {"word_vectorizer": "tokenized", },
+        "kwds": {"word_vectorizer": "tokenized",},
     },
 }
 
@@ -700,20 +723,20 @@ _DOCUMENT_VECTORIZERS = {
 
 class JointWordDocVectorizer(BaseEstimator, TransformerMixin):
     def __init__(
-            self,
-            n_components=20,
-            tokenizer="nltk",
-            tokenizer_kwds=None,
-            token_contractor="conservative",
-            token_contractor_kwds=None,
-            feature_basis_transformer="tokenized",
-            feature_basis_transformer_kwds=None,
-            word_cooccurrence_vectorizer="symmetric",
-            word_cooccurrence_vectorizer_kwds=None,
-            doc_vectorizer="tokenized",
-            doc_vectorizer_kwds=None,
-            fit_unique=True,
-            exclude_token_regex=None,
+        self,
+        n_components=20,
+        tokenizer="nltk",
+        tokenizer_kwds=None,
+        token_contractor="conservative",
+        token_contractor_kwds=None,
+        feature_basis_transformer="tokenized",
+        feature_basis_transformer_kwds=None,
+        word_cooccurrence_vectorizer="symmetric",
+        word_cooccurrence_vectorizer_kwds=None,
+        doc_vectorizer="tokenized",
+        doc_vectorizer_kwds=None,
+        fit_unique=True,
+        exclude_token_regex=None,
     ):
         """
         """
@@ -849,7 +872,7 @@ class JointWordDocVectorizer(BaseEstimator, TransformerMixin):
         }
         self.word_label_dictionary_ = {
             f"w_{self.word_cooccurrence_vectorizer_.column_index_dictionary_[i]}": i
-                                                                                   + self.n_documents_
+            + self.n_documents_
             for i in range(self.n_words_)
         }
         self.word_index_dictionary_ = {

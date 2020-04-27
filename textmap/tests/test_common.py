@@ -106,6 +106,13 @@ def test_docvectorizer_todataframe():
     assert df.shape == (5, 7)
 
 
+def test_docvectorizer_unique():
+    model_unique = DocVectorizer(token_contractor_kwds={"min_score": 25}, fit_unique=True).fit(test_text)
+    assert 'foo_bar' not in model_unique.column_label_dictionary_
+    model_duplicates = DocVectorizer(token_contractor_kwds={"min_score": 25}, fit_unique=False).fit(test_text)
+    assert 'foo_bar' in model_duplicates.column_label_dictionary_
+
+
 # Should we also test for stanza?  It's failing in Travis.
 @pytest.mark.parametrize("tokenizer", ["nltk", "tweet", "spacy", "sklearn"])
 @pytest.mark.parametrize("token_contractor", ["aggressive", "conservative"])
