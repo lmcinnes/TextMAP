@@ -694,7 +694,7 @@ class FeatureBasisTransformer(BaseEstimator, TransformerMixin):
         # Maybe in future we'll drop the unseen tokens with a warning.
         if len(difference) > 0:
             raise ValueError(
-                f"Sorry your feature space contained tokens unseen by your FeatureBasisTrasnforer."
+                f"Sorry your feature space contained tokens unseen by your FeatureBasisTransformer."
                 f"Unrecognized tokens: {difference}"
             )
 
@@ -757,9 +757,9 @@ class JointWordDocVectorizer(BaseEstimator, TransformerMixin):
     def fit(self, X):
         # TOKENIZATION
         # use tokenizer to build list of the sentences in the corpus
-        # Force the tokenizer to tokenize into a sentence by document representation.
+        # Force the tokenizer to tokenize into a sentence_by_document representation.
         self.tokenizer_kwds_ = initialize_kwds(
-            self.tokenizer_kwds, {"tokenize_by": "sentence by document"}
+            self.tokenizer_kwds, {"tokenize_by": "sentence_by_document"}
         )
         self.tokenizer_ = create_processing_pipeline_stage(
             self.tokenizer, _DOCUMENT_TOKENIZERS, self.tokenizer_kwds_, "Tokenizer"
@@ -862,8 +862,8 @@ class JointWordDocVectorizer(BaseEstimator, TransformerMixin):
         # Ugh, this will currently break horribly if you set lots of steps to None.
         # We can either prevent them from doing that for the feature_basis_transformer and doc_vectorizer or...
         # This is returned in the order that the tokens occur as rows in the represenation_words_
-        self.vocabulary_ = self.doc_vectorizer_.vocabulary_
-        self.n_words_ = len(self.vocabulary_)
+        self.vocabulary_ = self.doc_vectorizer_.vocabulary_ if self.doc_vectorizer_ else None
+        self.n_words_ = len(self.vocabulary_) if self.vocabulary_ else 0
         self.n_documents_ = self.representation_docs_.shape[0]
         self.word_or_doc_ = ["word"] * self.n_words_ + ["doc"] * self.n_documents_
         self.doc_label_dictionary_ = {f"d_{i}": i for i in range(self.n_documents_)}
