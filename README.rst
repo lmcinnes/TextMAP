@@ -6,8 +6,8 @@ WARNING: Pre-Alpha Library.
 .. |Travis| image:: https://travis-ci.org/TutteInstitute/TextMAP.svg?branch=master
 .. _Travis: https://travis-ci.org/TutteInstitute/TextMAP
 
-.. |Codecov| image:: https://codecov.io/gh/scikit-learn-contrib/project-template/branch/master/graph/badge.svg
-.. _Codecov: https://codecov.io/gh/scikit-learn-contrib/project-template
+.. |Codecov| image:: https://codecov.io/gh/TutteInstitute/TextMAP/branch/master/graph/badge.svg
+.. _Codecov: https://codecov.io/gh/TutteInstitute/TextMAP
 
 .. |CircleCI| image:: https://circleci.com/gh/TutteInstitute/TextMAP.svg?style=shield&circle-token=:circle-token
 .. _CircleCI: https://circleci.com/gh/TutteInstitute/TextMAP/tree/master
