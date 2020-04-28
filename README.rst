@@ -1,7 +1,7 @@
 .. -*- mode: rst -*-
 WARNING: Pre-Alpha Library.  
 
-|Travis|_ |Codecov|_ |CircleCI|_ |ReadTheDocs|_
+|Travis|_ |Codecov|_ |CircleCI|_ |ReadTheDocs|_ |Coveralls|_
 
 .. |Travis| image:: https://travis-ci.org/TutteInstitute/TextMAP.svg?branch=master
 .. _Travis: https://travis-ci.org/TutteInstitute/TextMAP
@@ -14,6 +14,10 @@ WARNING: Pre-Alpha Library.
 
 .. |ReadTheDocs| image:: https://readthedocs.org/projects/TextMAP/badge/?version=latest
 .. _ReadTheDocs: https://TextMAP.readthedocs.io/en/latest/?badge=latest
+
+.. |Coveralls| image:: https://coveralls.io/repos/github/TutteInstitute/TextMAP/badge.svg?branch=master
+.. _Coveralls: https://coveralls.io/github/TutteInstitute/TextMAP?branch=master
+
 
 TextMAP: Tools for Topologically based Text Embeddings
 ======================================================
