@@ -7,12 +7,14 @@ cache:
   directories:
   - $HOME/.cache/pip
 
-matrix:
+jobs:
   include:
     - env: PYTHON_VERSION="3.7" NUMPY_VERSION="1.16.6" SCIPY_VERSION="1.4.1"
            SKLEARN_VERSION="0.20.3"
     - env: PYTHON_VERSION="3.8" NUMPY_VERSION="*" SCIPY_VERSION="*"
            SKLEARN_VERSION="*"
+    - env: PYTHON_VERSION="3.8" NUMPY_VERSION="*" SCIPY_VERSION="*"
+           SKLEARN_VERSION="*" COVERAGE="true"
 
 install:
   # install miniconda
@@ -38,12 +40,22 @@ install:
   - pip install pynndescent umap-learn hdbscan enstop pandas nltk spacy
   - pip install git+git://github.com/TutteInstitute/vectorizers
   - pip install codecov
+  - pip install coveralls
+  - pip install coverage
   - pip install .
 
 script:
-  - mkdir for_test
-  - cd for_test
-  - pytest -v --cov=textmap --pyargs textmap
-
+  - |
+      if [ "$COVERAGE" = "true" ]; then
+         # disable numba for coverage run
+         export NUMBA_DISABLE_JIT=1
+         coverage run -m pytest -v --pyargs textmap -k tests
+      else
+         pytest -v --pyargs textmap
+      fi
 after_success:
-  - codecov
+  - |
+      if [ "$COVERAGE" = "true" ]; then
+         codecov
+         coveralls
+      fi
