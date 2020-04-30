@@ -406,7 +406,7 @@ def numba_multinomial_em_sparse(
         indices = inds[indptr[i] : indptr[i + 1]]
         row_data = data[indptr[i] : indptr[i + 1]]
 
-        row_background = np.empty_like(row_data)
+        row_background = np.zeros_like(row_data)
         for idx in range(indices.shape[0]):
             j = indices[idx]
             bg_val = 0.0
@@ -428,9 +428,10 @@ def numba_multinomial_em_sparse(
             change_magnitude > precision and mix_param > 1e-2 and mix_param < 1.0 - 1e-2
         ):
 
-            posterior_dist = (current_dist * mix_param)
-            posterior_dist /= (current_dist * mix_param + row_background * (1.0 - mix_param))
-
+            posterior_dist = current_dist * mix_param
+            posterior_dist /= current_dist * mix_param + row_background * (
+                1.0 - mix_param
+            )
 
             current_dist = posterior_dist * row_data
             mix_param = (current_dist.sum() + prior[0]) / mp
@@ -467,7 +468,7 @@ def multinomial_em_sparse(
     bg_prior=5.0,
     prior_strength=1.0,
 ):
-    result = matrix.tocsr().copy().astype(np.float32)
+    result = matrix.tocsr().astype(np.float32)
     new_data, mix_weights = numba_multinomial_em_sparse(
         result.indptr,
         result.indices,
@@ -578,6 +579,11 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
         """
 
         check_is_fitted(self, ["model_"])
+        if self.model_type == "enstop" and self.model_.n_components_ == 0:
+            if self.normalize:
+                return normalize(X, norm="l1")
+            else:
+                return X
         row_sums = np.array(X.sum(axis=1)).T[0]
         embedding_ = self.model_.transform(X.astype(np.float32))
 
@@ -617,27 +623,8 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
             The matrix X with the low-rank effects removed.
 
         """
-
         self.fit(X, **fit_params)
-        row_sums = np.array(X.sum(axis=1)).T[0]
-        embedding_ = self.model_.embedding_
-
-        result, weights = multinomial_em_sparse(
-            normalize(X, norm="l1"),
-            embedding_,
-            self.model_.components_,
-            low_thresh=self.em_threshold,
-            bg_prior=self.em_background_prior,
-            precision=self.em_precision,
-            prior_strength=self.em_prior_strength,
-        )
-        self.mix_weights_ = weights
-        if not self.normalize:
-            result = scipy.sparse.diags(row_sums * weights) * result
-
-        result.eliminate_zeros()
-
-        return result
+        return self.transform(X)
 
 
 class MultiTokenExpressionTransformer(BaseEstimator, TransformerMixin):

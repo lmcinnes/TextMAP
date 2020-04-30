@@ -25,8 +25,10 @@ INSTALL_REQUIRES = [
     "numpy",
     "scipy",
     "scikit-learn",
-    "numba",
-    "enstop",
+    "numba >= 0.49",
+    "enstop >= 0.1.6",
+    "umap-learn >= 0.4.2",
+    "pynndescent >= 0.4.5",
     "pandas",
     "nltk",
 ]
