@@ -52,6 +52,52 @@ def initialize_kwds(dictionary, dict2=None):
     return kwds
 
 
+def sequence_to_dict(token_sequence):
+    """
+    Takes a sequence of tokens and coverts into token_label_dictionary in
+    canonical sorted order.
+
+    A token_label_dictionary is a dictionary from token labels to column indices
+    which represent that token.
+
+    Parameters
+    ----------
+    token_sequence: iterable
+        A sequence of tokens to sort and convert to a dictionary.
+
+    Returns
+    -------
+    dict
+        A canonically sorted dictionary of tokens to one up indices.
+    """
+    return {token: i for i, token in enumerate(np.sort(np.unique(token_sequence)))}
+
+
+def initialize_vocabulary(vocabulary):
+    """
+    A simple convenience function for handling the three vocabulary cases.
+    Parameters
+    ----------
+    vocabulary: sequence or dict (default=None)
+        A sequence of tokens or a dict mapping from tokens to indices
+    Returns
+    -------
+        A dict mapping from tokens to indices.
+        If a sequence was passed in this is in token sorted order otherwise the dict order
+        is preserved.
+    """
+    # If vocabulary is None we preserve that
+    if vocabulary is None:
+        vocab = None
+    # If you passed in a dictionary that also works.
+    elif isinstance(vocabulary, dict):
+        vocab = vocabulary
+    else:
+        vocab = sequence_to_dict(vocabulary)
+
+    return vocab
+
+
 def flatten(list_of_seq):
     assert isinstance(list_of_seq, Iterable)
     if len(list_of_seq) == 0:
@@ -115,6 +161,7 @@ class MultiTokenCooccurrenceVectorizer(BaseEstimator, TransformerMixin):
             info_weight_transformer_kwds=None,
             remove_effects_transformer="default",
             remove_effects_transformer_kwds=None,
+            vocabulary=None,
     ):
         self.vectorizer_list = vectorizer_list
         self.vectorizer_kwds_list = vectorizer_kwds_list
@@ -123,6 +170,7 @@ class MultiTokenCooccurrenceVectorizer(BaseEstimator, TransformerMixin):
         self.info_weight_transformer_kwds = info_weight_transformer_kwds
         self.remove_effects_transformer = remove_effects_transformer
         self.remove_effects_transformer_kwds = remove_effects_transformer_kwds
+        self.vocabulary = vocabulary
 
     def fit(self, X):
         """
@@ -161,20 +209,19 @@ class MultiTokenCooccurrenceVectorizer(BaseEstimator, TransformerMixin):
             f"remove effects transformer",
         )
 
-        # TODO: Check to make sure all matrices have the same number of rows and throw
-        # informative error.
-
         self.column_label_dictionary_ = {}
 
+        self.vocabulary_ = initialize_vocabulary(self.vocabulary)
         for i, vectorizer in enumerate(self.vectorizer_list):
+            vectorizer_kwds = initialize_kwds(self.vectorizer_kwds_list_[i], {'token_dictionary': self.vocabulary_})
             vectorizer_ = create_processing_pipeline_stage(
                 vectorizer,
                 _COOCCURRENCE_VECTORIZERS,
-                self.vectorizer_kwds_list_[i],
+                vectorizer_kwds,
                 f"vectorizer {self.vectorizer_names_list_[i]}",
             )
-            token_cooccurence = vectorizer_.fit_transform(X)
 
+            token_cooccurence = vectorizer_.fit_transform(X)
             if self.info_weight_transformer_ is not None:
                 token_cooccurence = self.info_weight_transformer_.fit_transform(
                     token_cooccurence
@@ -185,7 +232,7 @@ class MultiTokenCooccurrenceVectorizer(BaseEstimator, TransformerMixin):
                 )
 
             if i == 0:
-                self.vocabulary_ = list(vectorizer_.column_label_dictionary_.keys())
+                self.vocabulary_ = vectorizer_.column_label_dictionary_
                 self.token_label_dictionary_ = vectorizer_.column_label_dictionary_
                 self.token_index_dictionary_ = vectorizer_.column_index_dictionary_
                 self.vocabulary_size_ = len(vectorizer_.column_label_dictionary_)
@@ -210,3 +257,4 @@ class MultiTokenCooccurrenceVectorizer(BaseEstimator, TransformerMixin):
     def fit_transform(self, X, y=None, **fit_params):
         self.fit(X)
         return self.representation_
+
