@@ -139,7 +139,7 @@ def test_re_transformer_zero_row(
     assert np.allclose(result.toarray(), transform.toarray())
 
 
-@pytest.mark.parametrize("n_components", [1, ])
+@pytest.mark.parametrize("n_components", [1, 2])
 @pytest.mark.parametrize("model_type", ["pLSA"])
 @pytest.mark.parametrize("information_function", ['idf', 'average_idf', 'column_kl', 'bernoulli_kl'])
 def test_iw_transformer(
@@ -155,7 +155,7 @@ def test_iw_transformer(
     assert np.allclose(result.toarray(), transform.toarray())
 
 
-@pytest.mark.parametrize("n_components", [1, ])
+@pytest.mark.parametrize("n_components", [1, 2])
 @pytest.mark.parametrize("model_type", ["pLSA"])
 @pytest.mark.parametrize("information_function", ['idf', 'average_idf', 'column_kl', 'bernoulli_kl'])
 def test_iw_transformer_zer_column(
@@ -171,7 +171,7 @@ def test_iw_transformer_zer_column(
     assert np.allclose(result.toarray(), transform.toarray())
 
 
-@pytest.mark.parametrize("n_components", [1, ])
+@pytest.mark.parametrize("n_components", [1, 2])
 @pytest.mark.parametrize("model_type", ["pLSA"])
 @pytest.mark.parametrize("information_function", ['idf', 'average_idf', 'column_kl', 'bernoulli_kl'])
 def test_iw_transformer_zer_row_plsa(
