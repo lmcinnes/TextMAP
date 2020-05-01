@@ -367,15 +367,16 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
 
         self.fit(X, **fit_params)
         if self.binarize_matrix:
-            binary_matrix = (X != 0).astype(np.float32)
-            token_counts = np.array(binary_matrix.sum(axis=1)).T[0]
+            for_transform = (X != 0).astype(np.float32)
+            token_counts = np.array(for_transform.sum(axis=1)).T[0]
         else:
+            for_transform = X.astype(np.float32)
             token_counts = np.array((X.astype(np.float32)).sum(axis=1)).T[0]
 
         result = info_weight_matrix(
             self._information_function,
             X.astype(np.float32),
-            self.model_.embedding_,
+            self.model_.transform(for_transform),
             self.model_.components_,
             token_counts,
         )
