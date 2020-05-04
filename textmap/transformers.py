@@ -468,7 +468,10 @@ def multinomial_em_sparse(
     bg_prior=5.0,
     prior_strength=1.0,
 ):
-    result = matrix.tocsr().astype(np.float32)
+    if scipy.sparse.isspmatrix_csr(matrix):
+        result = matrix.copy().astype(np.float32)
+    else:
+        result = matrix.tocsr().astype(np.float32)
     new_data, mix_weights = numba_multinomial_em_sparse(
         result.indptr,
         result.indices,
