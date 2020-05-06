@@ -23,7 +23,7 @@ def fuzz01(val):
     return val
 
 
-@numba.njit()
+@numba.njit(nogil=True, parallel=True)
 def idf_avg_weight(row, col, val, frequencies_i, frequencies_j, token_counts):
     """
 
@@ -59,7 +59,7 @@ def idf_avg_weight(row, col, val, frequencies_i, frequencies_j, token_counts):
     return val
 
 
-@numba.njit()
+@numba.njit(nogil=True, parallel=True)
 def avg_idf_weight(row, col, val, frequencies_i, frequencies_j, token_counts):
     """
 
@@ -91,7 +91,7 @@ def avg_idf_weight(row, col, val, frequencies_i, frequencies_j, token_counts):
     return val
 
 
-# @numba.njit()
+@numba.njit(nogil=True, parallel=True)
 def column_kl_divergence_weight(
     row, col, val, frequencies_i, frequencies_j, token_counts
 ):
@@ -109,14 +109,16 @@ def column_kl_divergence_weight(
     model_token_sum = np.zeros(frequencies_j.shape[1])
     actual_token_sum = np.zeros(frequencies_j.shape[1])
 
+    for i in range(frequencies_i.shape[0]):
+        for j in range(frequencies_j.shape[1]):
+            for k in range(frequencies_i.shape[1]):
+                model_token_sum[j] += (
+                    frequencies_j[k, j] * frequencies_i[i, k] * token_counts[i]
+                )
+
     for idx in range(row.shape[0]):
         i = row[idx]
         j = col[idx]
-
-        for k in range(frequencies_i.shape[1]):
-            model_token_sum[j] += (
-                frequencies_j[k, j] * frequencies_i[i, k] * token_counts[i]
-            )
         actual_token_sum[j] = actual_token_sum[j] + val[idx]
 
     kl = np.zeros(frequencies_j.shape[1]).astype(np.float32)
@@ -139,7 +141,7 @@ def column_kl_divergence_weight(
     return val
 
 
-# @numba.njit()
+@numba.njit(nogil=True, parallel=True)
 def bernoulli_kl_divergence_weight(
     row, col, val, frequencies_i, frequencies_j, token_counts
 ):
@@ -189,13 +191,16 @@ _INFORMATION_FUNCTIONS = {
 def info_weight_matrix(
     info_function, matrix, frequencies_i, frequencies_j, token_counts
 ):
-    result = matrix.tocoo().copy()
+    if scipy.sparse.isspmatrix_coo(matrix):
+        result = matrix.copy().astype(np.float32)
+    else:
+        result = matrix.tocoo().astype(np.float32)
 
     new_data = info_function(
         result.row, result.col, result.data, frequencies_i, frequencies_j, token_counts,
     )
     result.data = new_data
-
+    result.eliminate_zeros()
     return result.tocsr()
 
 
@@ -285,8 +290,6 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
                 ).fit(binary_indicator_matrix)
             else:
                 raise ValueError("model_type is not supported")
-
-            self.token_counts_ = np.array(binary_indicator_matrix.sum(axis=1)).T[0]
 
         else:
 
