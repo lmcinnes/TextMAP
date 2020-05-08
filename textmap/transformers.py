@@ -23,7 +23,7 @@ def fuzz01(val):
     return val
 
 
-@numba.njit(nogil=True, parallel=True)
+@numba.njit()
 def idf_avg_weight(
     row, col, val, frequencies_i, frequencies_j, document_lengths, token_counts
 ):
@@ -61,7 +61,7 @@ def idf_avg_weight(
     return val
 
 
-@numba.njit(nogil=True, parallel=True)
+@numba.njit()
 def avg_idf_weight(
     row, col, val, frequencies_i, frequencies_j, document_lengths, token_counts
 ):
@@ -95,7 +95,7 @@ def avg_idf_weight(
     return val
 
 
-@numba.njit(nogil=True, parallel=True)
+@numba.njit()
 def column_kl_divergence_weight(
     row, col, val, frequencies_i, frequencies_j, document_lengths, token_counts
 ):
@@ -134,7 +134,7 @@ def column_kl_divergence_weight(
     return val
 
 
-@numba.njit(nogil=True, parallel=True)
+@numba.njit()
 def bernoulli_kl_divergence_weight(
     row, col, val, frequencies_i, frequencies_j, document_lengths, token_counts
 ):
