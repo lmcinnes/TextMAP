@@ -215,9 +215,9 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
     information_function: callable or str
         Either a numba.jit function that takes in coo data, model frequencies, and row_sums or a string that calls
         a predefined option.  The string options are
-        * 'idf' (default)
+        * 'column_kl' (default)
+        * 'idf'
         * 'average_idf'
-        * 'column_kl'
         * 'bernoulli_kl'
 
     binarize_matrix: bool (optional)
@@ -229,7 +229,7 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
         self,
         n_components=1,
         model_type="pLSA",
-        information_function="idf",
+        information_function="column_kl",
         binarize_matrix=True,
     ):
 
