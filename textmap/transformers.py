@@ -110,14 +110,7 @@ def column_kl_divergence_weight(
 
     """
 
-    model_token_sum = np.zeros(frequencies_j.shape[1])
-
-    for i in range(frequencies_i.shape[0]):
-        for j in range(frequencies_j.shape[1]):
-            for k in range(frequencies_i.shape[1]):
-                model_token_sum[j] += (
-                    frequencies_j[k, j] * frequencies_i[i, k] * document_lengths[i]
-                )
+    model_token_sum = (document_lengths.dot(frequencies_i)).dot(frequencies_j)
 
     kl = np.zeros(frequencies_j.shape[1]).astype(np.float32)
     for idx in range(row.shape[0]):
