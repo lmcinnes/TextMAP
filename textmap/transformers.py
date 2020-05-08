@@ -95,7 +95,7 @@ def avg_idf_weight(
     return val
 
 
-@numba.njit(nogil=True, parallel=True)
+# @numba.njit(nogil=True, parallel=True)
 def column_kl_divergence_weight(
     row, col, val, frequencies_i, frequencies_j, document_lengths, token_counts
 ):
@@ -129,7 +129,7 @@ def column_kl_divergence_weight(
     for idx in range(row.shape[0]):
         i = row[idx]
         j = col[idx]
-        val[idx] *= kl[j]
+        val[idx] = val[idx] * kl[j]
 
     return val
 
@@ -184,6 +184,10 @@ _INFORMATION_FUNCTIONS = {
 def info_weight_matrix(
     info_function, matrix, frequencies_i, frequencies_j, document_lengths, token_counts
 ):
+    if scipy.sparse.isspmatrix_coo(matrix):
+        matrix = matrix.copy().astype(np.float32)
+    else:
+        matrix = matrix.tocoo().astype(np.float32)
 
     new_data = info_function(
         matrix.row,
@@ -230,7 +234,7 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
         n_components=1,
         model_type="pLSA",
         information_function="column_kl",
-        binarize_matrix=True,
+        binarize_matrix=False,
     ):
 
         self.n_components = n_components
@@ -268,9 +272,9 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
                 f"Unrecognized kernel_function; should be callable or one of {_INFORMATION_FUNCTIONS.keys()}"
             )
 
-        if self.information_function in ["idf", "average idf"]:
+        if self.information_function in ["idf", "average_idf"]:
             self.binarize_matrix = True
-        elif self.information_function in ["column KL", "Bernoulli KL"]:
+        elif self.information_function in ["column_kl", "bernoulli_kl"]:
             self.binarize_matrix = False
 
         if self.binarize_matrix:
@@ -321,25 +325,19 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
 
         """
         check_is_fitted(self, ["model_"])
-        if scipy.sparse.isspmatrix_coo(X):
-            result = X.copy().astype(np.float32)
-        else:
-            result = X.tocoo().astype(np.float32)
 
         if self.binarize_matrix:
-            binary_matrix = (X != 0).astype(np.float32)
-            embedding_ = self.model_.transform(binary_matrix)
-            document_lengths = np.array(binary_matrix.sum(axis=1)).T[0]
-            token_counts = np.array(binary_matrix.sum(axis=0))[0]
+            for_transform = (X != 0).astype(np.float32)
         else:
-            embedding_ = self.model_.transform(result)
-            document_lengths = np.array(result.sum(axis=1)).T[0]
-            token_counts = np.array(result.sum(axis=0))[0]
+            for_transform = X.astype(np.float32)
+
+        document_lengths = np.array(for_transform.sum(axis=1, dtype=np.float32)).T[0]
+        token_counts = np.array(for_transform.sum(axis=0), dtype=np.float32)[0]
 
         result = info_weight_matrix(
             self._information_function,
-            result,
-            embedding_,
+            X,
+            self.model_.transform(for_transform),
             self.model_.components_,
             document_lengths,
             token_counts,
@@ -371,23 +369,18 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
         """
 
         self.fit(X, **fit_params)
-        if scipy.sparse.isspmatrix_coo(X):
-            result = X.copy().astype(np.float32)
-        else:
-            result = X.tocoo().astype(np.float32)
 
         if self.binarize_matrix:
             for_transform = (X != 0).astype(np.float32)
-            document_lengths = np.array(for_transform.sum(axis=1)).T[0]
-            token_counts = np.array(for_transform.sum(axis=0))[0]
         else:
-            for_transform = result
-            document_lengths = np.array(result.sum(axis=1)).T[0]
-            token_counts = np.array(result.sum(axis=0))[0]
+            for_transform = X.astype(np.float32)
+
+        document_lengths = np.array(for_transform.sum(axis=1), dtype=np.float32).T[0]
+        token_counts = np.array(for_transform.sum(axis=0), dtype=np.float32)[0]
 
         result = info_weight_matrix(
             self._information_function,
-            result,
+            X,
             self.model_.transform(for_transform),
             self.model_.components_,
             document_lengths,
