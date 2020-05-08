@@ -391,7 +391,7 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
         return result
 
 
-@numba.njit(nogil=True, parallel=True)
+@numba.njit()
 def numba_multinomial_em_sparse(
     indptr,
     inds,
