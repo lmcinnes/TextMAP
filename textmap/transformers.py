@@ -95,7 +95,7 @@ def avg_idf_weight(
     return val
 
 
-# @numba.njit(nogil=True, parallel=True)
+@numba.njit(nogil=True, parallel=True)
 def column_kl_divergence_weight(
     row, col, val, frequencies_i, frequencies_j, document_lengths, token_counts
 ):
@@ -391,7 +391,7 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
         return result
 
 
-@numba.njit()
+@numba.njit(nogil=True, parallel=True)
 def numba_multinomial_em_sparse(
     indptr,
     inds,
