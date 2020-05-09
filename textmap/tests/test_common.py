@@ -1,4 +1,7 @@
 import pytest
+from hypothesis import given, example, settings
+import hypothesis.strategies as st
+from hypothesis.strategies import composite
 
 from sklearn.utils.estimator_checks import check_estimator
 import scipy.sparse
@@ -62,10 +65,58 @@ test_matrix_zero_row.eliminate_zeros()
 test_matrix_zero_column = scipy.sparse.csr_matrix([[1, 2, 0], [4, 5, 0], [7, 8, 0]])
 test_matrix_zero_column.eliminate_zeros()
 
+## Setup for randomized text generation
+from string import ascii_letters
+
+VOCAB_SIZE = 50
+ALPHABET = ascii_letters #st.characters(blacklist_characters=' ')
+
+VocabularyStrategy = st.lists(st.text(alphabet=ALPHABET, min_size=2, max_size=15), min_size=VOCAB_SIZE, max_size=VOCAB_SIZE, unique=True)
+
+def indices_to_sentence(indices, vocabulary):
+    """
+    Turn a list of indices into a vocabulary into a sentence.
+    """
+    y = indices
+    words = [vocabulary[idx] for idx in y]
+    return " ".join(words)
+
+@composite
+def generate_test_text(draw):
+    """
+    Generates a list of test text, where one of the elements is duplicated, one of the elements is the
+    empty string, and one of the elements is duplicated with an extra word added.
+    """
+    vocabulary = draw(VocabularyStrategy)
+    vocab_size = len(vocabulary) - 1
+    x = draw(st.lists(st.lists(st.integers(min_value=0, max_value=vocab_size), min_size=5, max_size=20, unique=True), min_size=10, max_size=30))
+    text = [indices_to_sentence(y, vocabulary) for y in x]
+
+    text.append("")
+
+    index_to_duplicate = draw(st.integers(min_value=0, max_value=len(text)-1))
+    text.append(text[index_to_duplicate])
+
+    index_to_add_word = draw(st.integers(min_value=0, max_value=len(text)-1))
+    new_word = vocabulary[draw(st.integers(min_value=0, max_value=vocab_size))]
+    text.append(text[index_to_add_word] + " " + new_word)
+
+    return text
+
 
 # TODO: Add a set of tests for passing in instantiated classes
 
 # TODO: Test that DocVectorizer transform preserves column order and size on new data
+
+@given(generate_test_text())
+@settings(deadline=None)
+def test_joint_nobasistransformer_random(text):
+    model = JointWordDocVectorizer(
+        feature_basis_converter=None, token_contractor_kwds={"min_score": 8}
+    )
+    result = model.fit_transform(text)
+    assert isinstance(result, scipy.sparse.csr_matrix)
+
 
 def test_joint_nobasistransformer():
     model = JointWordDocVectorizer(
