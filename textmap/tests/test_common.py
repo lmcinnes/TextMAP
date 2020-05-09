@@ -110,21 +110,15 @@ def generate_test_text(draw):
 
 @given(generate_test_text())
 @settings(deadline=None)
-def test_joint_nobasistransformer_random(text):
+@example(test_text)
+def test_joint_nobasistransformer(text):
     model = JointWordDocVectorizer(
         feature_basis_converter=None, token_contractor_kwds={"min_score": 8}
     )
     result = model.fit_transform(text)
     assert isinstance(result, scipy.sparse.csr_matrix)
-
-
-def test_joint_nobasistransformer():
-    model = JointWordDocVectorizer(
-        feature_basis_converter=None, token_contractor_kwds={"min_score": 8}
-    )
-    result = model.fit_transform(test_text)
-    assert isinstance(result, scipy.sparse.csr_matrix)
-    assert result.shape == (12, 7)
+    if text == test_text:
+        assert result.shape == (12, 7)
 
 
 def test_joinworddocvectorizer_vocabulary():
