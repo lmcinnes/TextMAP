@@ -13,7 +13,7 @@ from textmap.tokenizers import (
     StanzaTokenizer,
 )
 from .test_common import (
-    test_text,
+    test_text_example as test_text,
     test_matrix,
     test_matrix_zero_column,
     test_matrix_zero_row,

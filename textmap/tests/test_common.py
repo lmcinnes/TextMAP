@@ -69,9 +69,15 @@ test_matrix_zero_column.eliminate_zeros()
 from string import ascii_letters
 
 VOCAB_SIZE = 50
-ALPHABET = ascii_letters #st.characters(blacklist_characters=' ')
+ALPHABET = ascii_letters  # st.characters(blacklist_characters=' ')
 
-VocabularyStrategy = st.lists(st.text(alphabet=ALPHABET, min_size=2, max_size=15), min_size=VOCAB_SIZE, max_size=VOCAB_SIZE, unique=True)
+VocabularyStrategy = st.lists(
+    st.text(alphabet=ALPHABET, min_size=2, max_size=15),
+    min_size=VOCAB_SIZE,
+    max_size=VOCAB_SIZE,
+    unique=True,
+)
+
 
 def indices_to_sentence(indices, vocabulary):
     """
@@ -81,6 +87,7 @@ def indices_to_sentence(indices, vocabulary):
     words = [vocabulary[idx] for idx in y]
     return " ".join(words)
 
+
 @composite
 def generate_test_text(draw):
     """
@@ -89,15 +96,26 @@ def generate_test_text(draw):
     """
     vocabulary = draw(VocabularyStrategy)
     vocab_size = len(vocabulary) - 1
-    x = draw(st.lists(st.lists(st.integers(min_value=0, max_value=vocab_size), min_size=5, max_size=20, unique=True), min_size=10, max_size=30))
+    x = draw(
+        st.lists(
+            st.lists(
+                st.integers(min_value=0, max_value=vocab_size),
+                min_size=5,
+                max_size=20,
+                unique=True,
+            ),
+            min_size=10,
+            max_size=30,
+        )
+    )
     text = [indices_to_sentence(y, vocabulary) for y in x]
 
     text.append("")
 
-    index_to_duplicate = draw(st.integers(min_value=0, max_value=len(text)-1))
+    index_to_duplicate = draw(st.integers(min_value=0, max_value=len(text) - 1))
     text.append(text[index_to_duplicate])
 
-    index_to_add_word = draw(st.integers(min_value=0, max_value=len(text)-1))
+    index_to_add_word = draw(st.integers(min_value=0, max_value=len(text) - 1))
     new_word = vocabulary[draw(st.integers(min_value=0, max_value=vocab_size))]
     text.append(text[index_to_add_word] + " " + new_word)
 
@@ -108,27 +126,32 @@ def generate_test_text(draw):
 
 # TODO: Test that DocVectorizer transform preserves column order and size on new data
 
+
 @given(generate_test_text())
-@settings(deadline=None)
-@example(test_text)
-def test_joint_nobasistransformer(text):
+@settings(deadline=TEST_DEADLINE)
+@example(test_text_example)
+def test_joint_nobasistransformer(test_text):
     model = JointWordDocVectorizer(
         feature_basis_converter=None, token_contractor_kwds={"min_score": 8}
     )
-    result = model.fit_transform(text)
+    result = model.fit_transform(test_text)
     assert isinstance(result, scipy.sparse.csr_matrix)
-    if text == test_text:
+    if test_text == test_text_example:
         assert result.shape == (12, 7)
+    else:
+        assert result.shape[0] <= VOCAB_SIZE + len(test_text)
+        assert result.shape[1] == len(test_text)
 
 
 def test_joinworddocvectorizer_vocabulary():
     model = JointWordDocVectorizer(
-        feature_basis_converter=None, vocabulary=['foo', 'bar', 'pok'],
+        feature_basis_converter=None, vocabulary=["foo", "bar", "pok"],
     )
     result = model.fit_transform(test_text)
     print(result)
     assert isinstance(result, scipy.sparse.csr_matrix)
     assert result.shape == (8, 3)
+
 
 def test_jointworddocvectorizer():
     model = JointWordDocVectorizer(n_components=3)
@@ -148,44 +171,56 @@ def test_featurebasisconverter_tokenized():
     new_rep = converter.change_basis(doc_rep, doc_vectorizer.column_index_dictionary_)
     assert new_rep.shape == (7, 3)
 
+
 def test_wordvectorizer_todataframe():
     model = WordVectorizer().fit(test_text)
     df = model.to_DataFrame()
     assert df.shape == (7, 14)
 
+
 def test_wordvectorizer_vocabulary():
-    model = WordVectorizer(vocabulary=['foo', 'bar']).fit(test_text)
+    model = WordVectorizer(vocabulary=["foo", "bar"]).fit(test_text)
     assert model.representation_.shape == (2, 4)
+
 
 def test_docvectorizer_todataframe():
     model = DocVectorizer().fit(test_text)
     df = model.to_DataFrame()
     assert df.shape == (5, 7)
 
+
 def test_docvectorizer_unique():
     with pytest.raises(ValueError):
-        model_unique = DocVectorizer(token_contractor_kwds={"min_score": 25}, fit_unique=True).fit(test_text)
-        assert 'foo_bar' not in model_unique.column_label_dictionary_
-        model_duplicates = DocVectorizer(token_contractor_kwds={"min_score": 25}, fit_unique=False).fit(test_text)
-        assert 'foo_bar' in model_duplicates.column_label_dictionary_
+        model_unique = DocVectorizer(
+            token_contractor_kwds={"min_score": 25}, fit_unique=True
+        ).fit(test_text)
+        assert "foo_bar" not in model_unique.column_label_dictionary_
+        model_duplicates = DocVectorizer(
+            token_contractor_kwds={"min_score": 25}, fit_unique=False
+        ).fit(test_text)
+        assert "foo_bar" in model_duplicates.column_label_dictionary_
+
 
 def test_docvectorizer_vocabulary():
-    model = DocVectorizer(vocabulary=['foo', 'bar'])
+    model = DocVectorizer(vocabulary=["foo", "bar"])
     results = model.fit_transform(test_text)
     assert results.shape == (5, 2)
+
 
 @pytest.mark.parametrize("tokenizer", ["nltk", "tweet", "spacy", "sklearn"])
 @pytest.mark.parametrize("token_contractor", ["aggressive", "conservative"])
 @pytest.mark.parametrize("vectorizer", ["bow", "bigram"])
 @pytest.mark.parametrize("normalize", [True, False])
-@pytest.mark.parametrize("fit_unique", [False]) #TODO: add True once code is fixed.
-def test_docvectorizer_basic(tokenizer, token_contractor, vectorizer, normalize, fit_unique):
+@pytest.mark.parametrize("fit_unique", [False])  # TODO: add True once code is fixed.
+def test_docvectorizer_basic(
+    tokenizer, token_contractor, vectorizer, normalize, fit_unique
+):
     model = DocVectorizer(
         tokenizer=tokenizer,
         token_contractor=token_contractor,
         vectorizer=vectorizer,
         normalize=normalize,
-        fit_unique=fit_unique
+        fit_unique=fit_unique,
     )
 
     result = model.fit_transform(test_text)
