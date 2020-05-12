@@ -22,13 +22,14 @@ import nltk
 
 nltk.download("punkt")
 
+
 # @pytest.mark.parametrize(
 #     "Estimator", [WordMAP, DocMAP, TopicMAP]
 # )
 # def test_all_estimators(Estimator):
 #     return check_estimator(Estimator)
 
-test_text = [
+test_text_example = [
     "foo bar pok wer pok pok foo bar wer qwe pok asd fgh",
     "foo bar pok wer pok pok foo bar wer qwe pok asd fgh",
     "",
@@ -89,10 +90,14 @@ def indices_to_sentence(indices, vocabulary):
 
 
 @composite
-def generate_test_text(draw):
+def generate_test_text_info(draw):
     """
     Generates a list of test text, where one of the elements is duplicated, one of the elements is the
     empty string, and one of the elements is duplicated with an extra word added.
+
+    Returns
+    -------
+    (test_text, vocabulary)
     """
     vocabulary = draw(VocabularyStrategy)
     vocab_size = len(vocabulary) - 1
@@ -119,7 +124,7 @@ def generate_test_text(draw):
     new_word = vocabulary[draw(st.integers(min_value=0, max_value=vocab_size))]
     text.append(text[index_to_add_word] + " " + new_word)
 
-    return text
+    return (text, vocabulary)
 
 
 # TODO: Add a set of tests for passing in instantiated classes
@@ -127,10 +132,11 @@ def generate_test_text(draw):
 # TODO: Test that DocVectorizer transform preserves column order and size on new data
 
 
-@given(generate_test_text())
-@settings(deadline=TEST_DEADLINE)
-@example(test_text_example)
-def test_joint_nobasistransformer(test_text):
+@given(generate_test_text_info())
+@settings(deadline=None)
+@example((test_text_example, None))
+def test_joint_nobasistransformer(test_text_info):
+    test_text = test_text_info[0]
     model = JointWordDocVectorizer(
         feature_basis_converter=None, token_contractor_kwds={"min_score": 8}
     )
@@ -139,28 +145,47 @@ def test_joint_nobasistransformer(test_text):
     if test_text == test_text_example:
         assert result.shape == (12, 7)
     else:
-        assert result.shape[0] <= VOCAB_SIZE + len(test_text)
-        assert result.shape[1] == len(test_text)
+        assert result.shape[0] == model.n_words_ + len(test_text)
+        assert result.shape[1] == model.n_words_
 
 
-def test_joinworddocvectorizer_vocabulary():
-    model = JointWordDocVectorizer(
-        feature_basis_converter=None, vocabulary=["foo", "bar", "pok"],
-    )
+@given(generate_test_text_info())
+@settings(deadline=None)
+@example((test_text_example, None))
+def test_jointworddocvectorizer_vocabulary(test_text_info):
+    test_text, vocabulary = test_text_info
+    vocabulary_size = 3
+    if test_text == test_text_example:
+        vocab = (["foo", "bar", "pok"],)
+    else:
+        vocab = vocabulary[:vocabulary_size]
+    model = JointWordDocVectorizer(feature_basis_converter=None, vocabulary=vocab)
     result = model.fit_transform(test_text)
-    print(result)
     assert isinstance(result, scipy.sparse.csr_matrix)
-    assert result.shape == (8, 3)
+    # assert result.shape == (8, 3)
+    assert model.n_words_ == vocabulary_size
+    assert result.shape[0] == vocabulary_size + len(test_text)
+    assert result.shape[1] == vocabulary_size
 
 
-def test_jointworddocvectorizer():
-    model = JointWordDocVectorizer(n_components=3)
+@given(generate_test_text_info())
+@settings(deadline=None)
+@example((test_text_example, None))
+def test_jointworddocvectorizer(test_text_info):
+    test_text, vocabulary = test_text_info
+    num_components = 3
+    model = JointWordDocVectorizer(n_components=num_components)
     result = model.fit_transform(test_text)
     transform = model.transform(test_text)
     assert np.allclose(result, transform)
-    assert result.shape == (12, 3)
-    assert model.n_words_ == 7
     assert isinstance(result, np.ndarray)
+    if test_text == test_text_example:
+        assert result.shape == (12, num_components)
+        assert model.n_words_ == 7
+    else:
+        assert model.n_words_ <= len(vocabulary)
+        assert result.shape[1] == num_components
+        assert result.shape[0] == len(test_text) + model.n_words_
 
 
 def test_featurebasisconverter_tokenized():
@@ -172,19 +197,35 @@ def test_featurebasisconverter_tokenized():
     assert new_rep.shape == (7, 3)
 
 
-def test_wordvectorizer_todataframe():
+@given(generate_test_text_info())
+@settings(deadline=None)
+@example((test_text_example, None))
+def test_wordvectorizer_todataframe(test_text_info):
+    test_text, vocabulary = test_text_info
     model = WordVectorizer().fit(test_text)
     df = model.to_DataFrame()
-    assert df.shape == (7, 14)
+    if test_text == test_text_example:
+        assert df.shape == (7, 14)
+    else:
+        assert df.shape[0] <= len(vocabulary)
+        assert df.shape[1] == df.shape[0] * 2
 
 
-def test_wordvectorizer_vocabulary():
-    model = WordVectorizer(vocabulary=["foo", "bar"]).fit(test_text)
+@given(generate_test_text_info())
+@settings(deadline=None)
+@example((test_text_example, None))
+def test_wordvectorizer_vocabulary(test_text_info):
+    test_text, vocabulary = test_text_info
+    if test_text == test_text_example:
+        vocab = ["foo", "bar"]
+    else:
+        vocab = test_text[0][:2]
+    model = WordVectorizer(vocabulary=vocab).fit(test_text)
     assert model.representation_.shape == (2, 4)
 
 
 def test_docvectorizer_todataframe():
-    model = DocVectorizer().fit(test_text)
+    model = DocVectorizer().fit(test_text_example)
     df = model.to_DataFrame()
     assert df.shape == (5, 7)
 
@@ -193,17 +234,17 @@ def test_docvectorizer_unique():
     with pytest.raises(ValueError):
         model_unique = DocVectorizer(
             token_contractor_kwds={"min_score": 25}, fit_unique=True
-        ).fit(test_text)
+        ).fit(test_text_example)
         assert "foo_bar" not in model_unique.column_label_dictionary_
         model_duplicates = DocVectorizer(
             token_contractor_kwds={"min_score": 25}, fit_unique=False
-        ).fit(test_text)
+        ).fit(test_text_example)
         assert "foo_bar" in model_duplicates.column_label_dictionary_
 
 
 def test_docvectorizer_vocabulary():
     model = DocVectorizer(vocabulary=["foo", "bar"])
-    results = model.fit_transform(test_text)
+    results = model.fit_transform(test_text_example)
     assert results.shape == (5, 2)
 
 
@@ -223,9 +264,9 @@ def test_docvectorizer_basic(
         fit_unique=fit_unique,
     )
 
-    result = model.fit_transform(test_text)
+    result = model.fit_transform(test_text_example)
     assert model.tokenizer_.tokenize_by == "document"
-    transform = model.transform(test_text)
+    transform = model.transform(test_text_example)
     assert np.allclose(result.toarray(), transform.toarray())
     if vectorizer == "bow":
         assert result.shape == (5, 7)
@@ -249,7 +290,7 @@ def test_wordvectorizer_basic(
         normalize=normalize,
         dedupe_sentences=dedupe_sentences,
     )
-    result = model.fit_transform(test_text)
+    result = model.fit_transform(test_text_example)
 
     if vectorizer == "flat":
         assert result.shape == (7, 14)
