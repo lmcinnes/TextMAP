@@ -520,9 +520,9 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
         n_components=1,
         model_type="pLSA",
         em_precision=1.0e-7,
-        em_background_prior=5.0,
-        em_threshold=1.0e-5,
-        em_prior_strength=0.2,
+        em_background_prior=1.0,
+        em_threshold=1.0e-8,
+        em_prior_strength=0.5,
         normalize=False,
     ):
 
