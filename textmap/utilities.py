@@ -61,27 +61,6 @@ def add_kwds(dictionary, key, value):
         kwds.update({key: value})
     return kwds
 
-def initialize_kwds(dictionary, dict2=None):
-    """
-    A simple helper function to initialize our dictionary if it is None and then fold in a second set of keywords.
-    Parameters
-    ----------
-    dictionary = dict
-    dict2 = dict (default {})
-
-    Returns
-    -------
-    A copy of dictionary with dict2 folded into it.
-    """
-    if dictionary is None:
-        kwds = {}
-    else:
-        kwds = dictionary.copy()
-    if dict2 is not None:
-        kwds.update(dict2)
-    return kwds
-
-
 def sequence_to_dict(token_sequence):
     """
     Takes a sequence of tokens and coverts into token_label_dictionary in
@@ -176,8 +155,8 @@ def create_processing_pipeline_stage(class_to_create, class_dict, kwds, class_ty
 # hstack them all and return
 class MultiTokenCooccurrenceVectorizer(BaseEstimator, TransformerMixin):
     """
-    Takes a sequence of token sequences, applies a set of TokenCooccurence views
-    of that data and returns the sparse concatination of all these views.
+    Takes a sequence of token sequences, applies a set of TokenCooccurrence views
+    of that data and returns the sparse concatenation of all these views.
 
     MultiTokenCooccurenceVectorizer(['before', 'after'],
     """
@@ -191,7 +170,7 @@ class MultiTokenCooccurrenceVectorizer(BaseEstimator, TransformerMixin):
         info_weight_transformer_kwds=None,
         remove_effects_transformer="default",
         remove_effects_transformer_kwds=None,
-        vocabulary=None,
+        token_dictionary=None,
     ):
         self.vectorizer_list = vectorizer_list
         self.vectorizer_kwds_list = vectorizer_kwds_list
@@ -200,7 +179,7 @@ class MultiTokenCooccurrenceVectorizer(BaseEstimator, TransformerMixin):
         self.info_weight_transformer_kwds = info_weight_transformer_kwds
         self.remove_effects_transformer = remove_effects_transformer
         self.remove_effects_transformer_kwds = remove_effects_transformer_kwds
-        self.vocabulary = vocabulary
+        self.token_dictionary = token_dictionary
 
     def fit(self, X):
         """
@@ -241,11 +220,9 @@ class MultiTokenCooccurrenceVectorizer(BaseEstimator, TransformerMixin):
 
         self.column_label_dictionary_ = {}
 
-        self.vocabulary_ = initialize_vocabulary(self.vocabulary)
+        self.token_dictionary_ = initialize_vocabulary(self.token_dictionary)
         for i, vectorizer in enumerate(self.vectorizer_list):
-            vectorizer_kwds = initialize_kwds(
-                self.vectorizer_kwds_list_[i], {"token_dictionary": self.vocabulary_}
-            )
+            vectorizer_kwds = add_kwds(self.vectorizer_kwds_list_[i], "token_dictionary", self.token_dictionary_)
             vectorizer_ = create_processing_pipeline_stage(
                 vectorizer,
                 _COOCCURRENCE_VECTORIZERS,
@@ -264,7 +241,7 @@ class MultiTokenCooccurrenceVectorizer(BaseEstimator, TransformerMixin):
                 )
 
             if i == 0:
-                self.vocabulary_ = vectorizer_.column_label_dictionary_
+                self.token_dictionary_ = vectorizer_.column_label_dictionary_
                 self.token_label_dictionary_ = vectorizer_.column_label_dictionary_
                 self.token_index_dictionary_ = vectorizer_.column_index_dictionary_
                 self.vocabulary_size_ = len(vectorizer_.column_label_dictionary_)

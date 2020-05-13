@@ -7,9 +7,9 @@ from .utilities import (
     _INFO_WEIGHT_TRANSFORERS,
     _REMOVE_EFFECT_TRANSFORMERS,
     _COOCCURRENCE_VECTORIZERS,
-    initialize_kwds,
     initialize_vocabulary,
     add_kwds,
+    flatten,
 )
 from .tokenizers import (
     NLTKTokenizer,
@@ -29,7 +29,6 @@ from sklearn.decomposition import TruncatedSVD
 # TruncatedSVD or a variety of other algorithms should also work.
 # TODO: should we wrap PLSA in a try and fall back on TruncatedSVD to remove the hard dependency?
 from enstop import PLSA, EnsembleTopics
-from .utilities import flatten, _COOCCURRENCE_VECTORIZERS
 
 _DOCUMENT_TOKENIZERS = {
     "nltk": {"class": NLTKTokenizer, "kwds": {"tokenize_by": "document"}},
@@ -223,12 +222,9 @@ class WordVectorizer(BaseEstimator, TransformerMixin):
         self.token_label_dictionary_ = initialize_vocabulary(
             self.token_dictionary
         )  # returns none or a dict of tokens to indices
-        if self.token_label_dictionary_ is None:
-            self.vectorizer_kwds_ = self.vectorizer_kwds
-        else:
-            self.vectorizer_kwds_ = initialize_kwds(
-                self.vectorizer_kwds, {"token_dictionary": self.token_label_dictionary_}
-            )
+        self.vectorizer_kwds_ = add_kwds(
+            self.vectorizer_kwds, "token_dictionary", self.token_label_dictionary_
+        )
         self.vectorizer_ = create_processing_pipeline_stage(
             self.vectorizer,
             _COOCCURRENCE_VECTORIZERS,
@@ -486,13 +482,9 @@ class DocVectorizer(BaseEstimator, TransformerMixin):
         self.token_label_dictionary_ = initialize_vocabulary(
             self.token_dictionary
         )  # returns none or a dict of tokens to indices
-        if self.token_label_dictionary_ is None:
-            self.vectorizer_kwds_ = self.vectorizer_kwds
-        else:
-            self.vectorizer_kwds_ = initialize_kwds(
-                self.vectorizer_kwds, {"ngram_dictionary": self.token_label_dictionary_}
-            )
-
+        self.vectorizer_kwds_ = add_kwds(
+            self.vectorizer_kwds, "ngram_dictionary", self.token_label_dictionary_
+        )
         self.vectorizer_ = create_processing_pipeline_stage(
             self.vectorizer,
             _TOKEN_VECTORIZERS,
@@ -738,14 +730,9 @@ class FeatureBasisConverter(BaseEstimator, TransformerMixin):
         self.token_label_dictionary_ = initialize_vocabulary(
             self.token_dictionary
         )  # returns none or a dict of tokens to indices
-        if self.token_label_dictionary_ is None:
-            self.word_vectorizer_kwds_ = self.word_vectorizer_kwds
-        else:
-            self.word_vectorizer_kwds_ = initialize_kwds(
-                self.word_vectorizer_kwds,
-                {"token_dictionary": self.token_label_dictionary_},
-            )
-
+        self.word_vectorizer_kwds_ = add_kwds(
+            self.word_vectorizer_kwds, "token_dictionary", self.token_label_dictionary_
+        )
         self.vectorizer_ = create_processing_pipeline_stage(
             self.word_vectorizer,
             _WORD_VECTORIZERS,
@@ -758,8 +745,8 @@ class FeatureBasisConverter(BaseEstimator, TransformerMixin):
 
         # n_components as set in the init has precedence over any other.
         # This is a bit inelegant.  Suggestions?
-        self.transformer_kwds_ = initialize_kwds(
-            self.transformer_kwds, {"n_components": self.n_components}
+        self.transformer_kwds_ = add_kwds(
+            self.transformer_kwds, "n_components", self.n_components
         )
         self.transformer_ = create_processing_pipeline_stage(
             self.transformer, _TRANSFORMERS, self.transformer_kwds_, "Transformer"
@@ -971,8 +958,8 @@ class JointWordDocVectorizer(BaseEstimator, TransformerMixin):
         # TOKENIZATION
         # use tokenizer to build list of the sentences in the corpus
         # Force the tokenizer to tokenize into a sentence_by_document representation.
-        self.tokenizer_kwds_ = initialize_kwds(
-            self.tokenizer_kwds, {"tokenize_by": "sentence_by_document"}
+        self.tokenizer_kwds_ = add_kwds(
+            self.tokenizer_kwds, "tokenize_by", "sentence_by_document"
         )
         self.tokenizer_ = create_processing_pipeline_stage(
             self.tokenizer, _DOCUMENT_TOKENIZERS, self.tokenizer_kwds_, "Tokenizer"
@@ -1027,9 +1014,10 @@ class JointWordDocVectorizer(BaseEstimator, TransformerMixin):
         # WORD COOCCURRENCE VECTORIZER
         # By default this essentially treats a word a document made up of all the sentences containing that word then
         # creates a bag of words representation of that document.
-        self.word_cooccurrence_vectorizer_kwds_ = initialize_kwds(
+        self.word_cooccurrence_vectorizer_kwds_ = add_kwds(
             self.word_cooccurrence_vectorizer_kwds,
-            {"token_dictionary": self.token_label_dictionary_,},
+            "token_dictionary",
+            self.token_label_dictionary_,
         )
         self.word_cooccurrence_vectorizer_ = create_processing_pipeline_stage(
             self.word_cooccurrence_vectorizer,
@@ -1050,12 +1038,11 @@ class JointWordDocVectorizer(BaseEstimator, TransformerMixin):
         # DOCUMENT VECTORIZER
         # This should be the same column representation oas the word cooccurrence vectorizer above.
         # By default this is a bag of words representation.
-        self.doc_vectorizer_kwds_ = initialize_kwds(
-            self.doc_vectorizer_kwds,
-            {
-                "fit_unique": self.fit_unique,
-                "token_dictionary": self.token_label_dictionary_,
-            },
+        self.doc_vectorizer_kwds_ = add_kwds(
+            self.doc_vectorizer_kwds, "fit_unique", self.fit_unique
+        )
+        self.doc_vectorizer_kwds_ = add_kwds(
+            self.doc_vectorizer_kwds_, "token_dictionary", self.token_label_dictionary_
         )
         self.doc_vectorizer_ = create_processing_pipeline_stage(
             self.doc_vectorizer,
