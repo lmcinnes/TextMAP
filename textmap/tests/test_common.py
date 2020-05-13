@@ -78,7 +78,7 @@ def test_joint_nobasistransformer():
 
 def test_joinworddocvectorizer_vocabulary():
     model = JointWordDocVectorizer(
-        feature_basis_converter=None, vocabulary=['foo', 'bar', 'pok'],
+        feature_basis_converter=None, token_dictionary=['foo', 'bar', 'pok'],
     )
     result = model.fit_transform(test_text)
     print(result)
@@ -109,7 +109,7 @@ def test_wordvectorizer_todataframe():
     assert df.shape == (7, 14)
 
 def test_wordvectorizer_vocabulary():
-    model = WordVectorizer(vocabulary=['foo', 'bar']).fit(test_text)
+    model = WordVectorizer(token_dictionary=['foo', 'bar']).fit(test_text)
     assert model.representation_.shape == (2, 4)
 
 def test_docvectorizer_todataframe():
@@ -125,7 +125,7 @@ def test_docvectorizer_unique():
         assert 'foo_bar' in model_duplicates.column_label_dictionary_
 
 def test_docvectorizer_vocabulary():
-    model = DocVectorizer(vocabulary=['foo', 'bar'])
+    model = DocVectorizer(token_dictionary=['foo', 'bar'])
     results = model.fit_transform(test_text)
     assert results.shape == (5, 2)
 
@@ -156,7 +156,7 @@ def test_docvectorizer_basic(tokenizer, token_contractor, vectorizer, normalize,
 # Should we also test for stanza?  Stanza's pytorch dependency makes this hard.
 @pytest.mark.parametrize("tokenizer", ["nltk", "tweet", "spacy", "sklearn"])
 @pytest.mark.parametrize("token_contractor", ["aggressive", "conservative"])
-@pytest.mark.parametrize("vectorizer", ["flat", "flat_1_5"])
+@pytest.mark.parametrize("vectorizer", ["before", "after", "symmetric", "directional"])
 @pytest.mark.parametrize("normalize", [True, False])
 @pytest.mark.parametrize("dedupe_sentences", [True, False])
 def test_wordvectorizer_basic(
@@ -171,8 +171,8 @@ def test_wordvectorizer_basic(
     )
     result = model.fit_transform(test_text)
 
-    if vectorizer == "flat":
+    if vectorizer in ["before", "after", "symmetric"]:
+        assert result.shape == (7, 7)
+    if vectorizer == "directional":
         assert result.shape == (7, 14)
-    if vectorizer == "flat_1_5":
-        assert result.shape == (7, 28)
     assert type(result) == scipy.sparse.csr.csr_matrix
