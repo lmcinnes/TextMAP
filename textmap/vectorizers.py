@@ -757,7 +757,7 @@ class FeatureBasisConverter(BaseEstimator, TransformerMixin):
             if self.transformer_.n_components > self.original_n_features:
                 raise ValueError(
                     f"Number of components must be less than or equal to the "
-                    f"number of features;  Got {n_components} > {self.original_n_features}."
+                    f"number of features;  Got {self.n_components} > {self.original_n_features}."
                 )
             self.basis_transformer_ = self.transformer_.fit_transform(
                 self.basis_transformer_
