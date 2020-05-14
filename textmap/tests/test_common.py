@@ -13,7 +13,10 @@ from textmap.vectorizers import (
     WordVectorizer,
     FeatureBasisConverter,
     JointWordDocVectorizer,
+    _MULTITOKEN_COOCCURRENCE_VECTORIZERS,
 )
+
+from textmap.utilities import MultiTokenCooccurrenceVectorizer
 
 import nltk
 
@@ -67,6 +70,7 @@ test_matrix_zero_column.eliminate_zeros()
 
 # TODO: Test that DocVectorizer transform preserves column order and size on new data
 
+
 def test_joint_nobasistransformer():
     model = JointWordDocVectorizer(
         feature_basis_converter=None, token_contractor_kwds={"min_score": 8}
@@ -78,12 +82,13 @@ def test_joint_nobasistransformer():
 
 def test_joinworddocvectorizer_vocabulary():
     model = JointWordDocVectorizer(
-        feature_basis_converter=None, token_dictionary=['foo', 'bar', 'pok'],
+        feature_basis_converter=None, token_dictionary=["foo", "bar", "pok"],
     )
     result = model.fit_transform(test_text)
     print(result)
     assert isinstance(result, scipy.sparse.csr_matrix)
     assert result.shape == (8, 3)
+
 
 def test_jointworddocvectorizer():
     model = JointWordDocVectorizer(n_components=3)
@@ -103,44 +108,56 @@ def test_featurebasisconverter_tokenized():
     new_rep = converter.change_basis(doc_rep, doc_vectorizer.column_index_dictionary_)
     assert new_rep.shape == (7, 3)
 
+
 def test_wordvectorizer_todataframe():
     model = WordVectorizer().fit(test_text)
     df = model.to_DataFrame()
     assert df.shape == (7, 14)
 
+
 def test_wordvectorizer_vocabulary():
-    model = WordVectorizer(token_dictionary=['foo', 'bar']).fit(test_text)
+    model = WordVectorizer(token_dictionary=["foo", "bar"]).fit(test_text)
     assert model.representation_.shape == (2, 4)
+
 
 def test_docvectorizer_todataframe():
     model = DocVectorizer().fit(test_text)
     df = model.to_DataFrame()
     assert df.shape == (5, 7)
 
+
 def test_docvectorizer_unique():
     with pytest.raises(ValueError):
-        model_unique = DocVectorizer(token_contractor_kwds={"min_score": 25}, fit_unique=True).fit(test_text)
-        assert 'foo_bar' not in model_unique.column_label_dictionary_
-        model_duplicates = DocVectorizer(token_contractor_kwds={"min_score": 25}, fit_unique=False).fit(test_text)
-        assert 'foo_bar' in model_duplicates.column_label_dictionary_
+        model_unique = DocVectorizer(
+            token_contractor_kwds={"min_score": 25}, fit_unique=True
+        ).fit(test_text)
+        assert "foo_bar" not in model_unique.column_label_dictionary_
+        model_duplicates = DocVectorizer(
+            token_contractor_kwds={"min_score": 25}, fit_unique=False
+        ).fit(test_text)
+        assert "foo_bar" in model_duplicates.column_label_dictionary_
+
 
 def test_docvectorizer_vocabulary():
-    model = DocVectorizer(token_dictionary=['foo', 'bar'])
+    model = DocVectorizer(token_dictionary=["foo", "bar"])
     results = model.fit_transform(test_text)
     assert results.shape == (5, 2)
+
 
 @pytest.mark.parametrize("tokenizer", ["nltk", "tweet", "spacy", "sklearn"])
 @pytest.mark.parametrize("token_contractor", ["aggressive", "conservative"])
 @pytest.mark.parametrize("vectorizer", ["bow", "bigram"])
 @pytest.mark.parametrize("normalize", [True, False])
-@pytest.mark.parametrize("fit_unique", [False]) #TODO: add True once code is fixed.
-def test_docvectorizer_basic(tokenizer, token_contractor, vectorizer, normalize, fit_unique):
+@pytest.mark.parametrize("fit_unique", [False])  # TODO: add True once code is fixed.
+def test_docvectorizer_basic(
+    tokenizer, token_contractor, vectorizer, normalize, fit_unique
+):
     model = DocVectorizer(
         tokenizer=tokenizer,
         token_contractor=token_contractor,
         vectorizer=vectorizer,
         normalize=normalize,
-        fit_unique=fit_unique
+        fit_unique=fit_unique,
     )
 
     result = model.fit_transform(test_text)
@@ -160,7 +177,7 @@ def test_docvectorizer_basic(tokenizer, token_contractor, vectorizer, normalize,
 @pytest.mark.parametrize("normalize", [True, False])
 @pytest.mark.parametrize("dedupe_sentences", [True, False])
 def test_wordvectorizer_basic(
-        tokenizer, token_contractor, vectorizer, normalize, dedupe_sentences
+    tokenizer, token_contractor, vectorizer, normalize, dedupe_sentences
 ):
     model = WordVectorizer(
         tokenizer=tokenizer,
@@ -176,3 +193,11 @@ def test_wordvectorizer_basic(
     if vectorizer == "directional":
         assert result.shape == (7, 14)
     assert type(result) == scipy.sparse.csr.csr_matrix
+
+
+def test_multitokencooccurrencevectorizer():
+    model = WordVectorizer(
+        vectorizer=MultiTokenCooccurrenceVectorizer,
+        vectorizer_kwds=_MULTITOKEN_COOCCURRENCE_VECTORIZERS["flat_1_5"]["kwds"],
+    ).fit(test_text)
+    assert model.representation_.shape == (7, 28)
