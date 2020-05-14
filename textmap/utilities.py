@@ -19,7 +19,10 @@ _REMOVE_EFFECT_TRANSFORMERS = {
 }
 
 _COOCCURRENCE_VECTORIZERS = {
-    "symmetric": {"class": TokenCooccurrenceVectorizer, "kwds": {}},
+    "symmetric": {
+        "class": TokenCooccurrenceVectorizer,
+        "kwds": {"window_orientation": "symmetric"},
+    },
     "before": {
         "class": TokenCooccurrenceVectorizer,
         "kwds": {"window_orientation": "before"},
@@ -33,6 +36,7 @@ _COOCCURRENCE_VECTORIZERS = {
         "kwds": {"window_orientation": "directional"},
     },
 }
+
 
 def add_kwds(dictionary, key, value):
     """
@@ -60,6 +64,7 @@ def add_kwds(dictionary, key, value):
     if (value is not None) and (key is not None):
         kwds.update({key: value})
     return kwds
+
 
 def sequence_to_dict(token_sequence):
     """
@@ -222,7 +227,11 @@ class MultiTokenCooccurrenceVectorizer(BaseEstimator, TransformerMixin):
 
         self.token_dictionary_ = initialize_vocabulary(self.token_dictionary)
         for i, vectorizer in enumerate(self.vectorizer_list):
-            vectorizer_kwds = add_kwds(self.vectorizer_kwds_list_[i], "token_dictionary", self.token_dictionary_)
+            vectorizer_kwds = add_kwds(
+                self.vectorizer_kwds_list_[i],
+                "token_dictionary",
+                self.token_dictionary_,
+            )
             vectorizer_ = create_processing_pipeline_stage(
                 vectorizer,
                 _COOCCURRENCE_VECTORIZERS,
