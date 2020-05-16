@@ -275,7 +275,7 @@ def test_docvectorizer_vocabulary(test_text_info):
 @settings(deadline=None)
 @example(test_text_info=(test_text_example, None))
 @pytest.mark.parametrize("tokenizer", ["nltk", "tweet", "spacy", "sklearn"])
-@pytest.mark.parametrize("token_contractor", ["aggressive", "conservative"])
+@pytest.mark.parametrize("token_contractor", ["aggressive", "conservative", None])
 @pytest.mark.parametrize("vectorizer", ["bow", "bigram"])
 @pytest.mark.parametrize("normalize", [True, False])
 @pytest.mark.parametrize("fit_unique", [False])  # TODO: add True once code is fixed.
@@ -302,8 +302,10 @@ def test_docvectorizer_basic(
             assert result.shape == (5, 19)
     else:
         assert result.shape[0] == len(test_text)
-        output_vocab = set(model.column_label_dictionary_.keys())
-        assert output_vocab.issubset(set(vocabulary))
+        if token_contractor is None:
+            output_vocab = set(model.column_label_dictionary_.keys())
+            lower_vocabulary = [x.lower() for x in vocabulary]
+            assert output_vocab.issubset(set(lower_vocabulary))
 
 
 # Should we also test for stanza?  Stanza's pytorch dependency makes this hard.
@@ -341,8 +343,9 @@ def test_wordvectorizer_basic(
                     x.lstrip("pre_").lstrip("post_")
                 for x in model.column_label_dictionary_.keys()
                 ]
-        )
-        assert output_vocab.issubset(set(vocabulary))
+            )
+            lower_vocabulary = [x.lower() for x in vocabulary]
+            assert output_vocab.issubset(set(lower_vocabulary))
     assert type(result) == scipy.sparse.csr.csr_matrix
 
 
