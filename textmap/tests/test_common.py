@@ -162,7 +162,7 @@ def test_jointworddocvectorizer_vocabulary(test_text_info):
     if test_text == test_text_example:
         vocab = (["foo", "bar", "pok"],)
     else:
-        vocab = vocabulary[:vocabulary_size]
+        vocab = test_text[0].split()[:vocabulary_size]
     model = JointWordDocVectorizer(feature_basis_converter=None, token_dictionary=vocab)
     result = model.fit_transform(test_text)
     assert isinstance(result, scipy.sparse.csr_matrix)
