@@ -1,5 +1,5 @@
 import pytest
-from hypothesis import given, example, settings, note
+from hypothesis import given, example, settings, note, HealthCheck
 import hypothesis.strategies as st
 from hypothesis.strategies import composite
 
@@ -272,7 +272,7 @@ def test_docvectorizer_vocabulary(test_text_info):
 
 
 @given(test_text_info=generate_test_text_info())
-@settings(deadline=None)
+@settings(deadline=None, suppress_health_check=[HealthCheck(3)])
 @example(test_text_info=(test_text_example, None))
 @pytest.mark.parametrize("tokenizer", ["nltk", "tweet", "spacy", "sklearn"])
 @pytest.mark.parametrize("token_contractor", ["aggressive", "conservative", None])
@@ -302,7 +302,7 @@ def test_docvectorizer_basic(
             assert result.shape == (5, 19)
     else:
         assert result.shape[0] == len(test_text)
-        if token_contractor is None:
+        if (token_contractor is None) and (vectorizer == "bow"):
             output_vocab = set(model.column_label_dictionary_.keys())
             lower_vocabulary = [x.lower() for x in vocabulary]
             assert output_vocab.issubset(set(lower_vocabulary))
@@ -310,7 +310,7 @@ def test_docvectorizer_basic(
 
 # Should we also test for stanza?  Stanza's pytorch dependency makes this hard.
 @given(test_text_info=generate_test_text_info())
-@settings(deadline=None)
+@settings(deadline=None, suppress_health_check=[HealthCheck(3)])
 @example(test_text_info=(test_text_example, None))
 @pytest.mark.parametrize("tokenizer", ["nltk", "tweet", "spacy", "sklearn"])
 @pytest.mark.parametrize("token_contractor", ["aggressive", "conservative", None])
