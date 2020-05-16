@@ -21,6 +21,7 @@ install:
   - pip install pynndescent umap hdbscan enstop pandas nltk spacy
   - pip install git+git://github.com/TutteInstitute/vectorizers
   - pip install codecov
+  - pip install hypothesis
   - pip install .
 
 test_script:
