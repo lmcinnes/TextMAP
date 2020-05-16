@@ -1,5 +1,5 @@
 import pytest
-from hypothesis import given, example, settings
+from hypothesis import given, example, settings, note
 import hypothesis.strategies as st
 from hypothesis.strategies import composite
 
@@ -16,7 +16,11 @@ from textmap.vectorizers import (
     WordVectorizer,
     FeatureBasisConverter,
     JointWordDocVectorizer,
+    _MULTITOKEN_COOCCURRENCE_VECTORIZERS,
 )
+
+from textmap.utilities import MultiTokenCooccurrenceVectorizer
+
 
 import nltk
 
@@ -82,7 +86,7 @@ VocabularyStrategy = st.lists(
 
 def indices_to_sentence(indices, vocabulary):
     """
-    Turn a list of indices into a vocabulary into a sentence.
+    Turn a list of indices of a vocabulary into a sentence.
     """
     y = indices
     words = [vocabulary[idx] for idx in y]
@@ -159,9 +163,7 @@ def test_jointworddocvectorizer_vocabulary(test_text_info):
         vocab = (["foo", "bar", "pok"],)
     else:
         vocab = vocabulary[:vocabulary_size]
-    model = JointWordDocVectorizer(
-      feature_basis_converter=None, token_dictionary=vocab
-    )
+    model = JointWordDocVectorizer(feature_basis_converter=None, token_dictionary=vocab)
     result = model.fit_transform(test_text)
     assert isinstance(result, scipy.sparse.csr_matrix)
     # assert result.shape == (8, 3)
@@ -221,15 +223,24 @@ def test_wordvectorizer_vocabulary(test_text_info):
     if test_text == test_text_example:
         vocab = ["foo", "bar"]
     else:
-        vocab = test_text[0][:2]
+        vocab = test_text[0].split()[:2]
     model = WordVectorizer(token_dictionary=vocab).fit(test_text)
     assert model.representation_.shape == (2, 4)
+    assert model.token_dictionary == vocab
 
 
-def test_docvectorizer_todataframe():
-    model = DocVectorizer().fit(test_text_example)
+@given(generate_test_text_info())
+@settings(deadline=None)
+@example((test_text_example, None))
+def test_docvectorizer_todataframe(test_text_info):
+    test_text, vocabulary = test_text_info
+    model = DocVectorizer().fit(test_text)
     df = model.to_DataFrame()
-    assert df.shape == (5, 7)
+    if test_text == test_text_example:
+        assert df.shape == (5, 7)
+    else:
+        assert df.shape[0] == len(test_text)
+        assert df.shape[1] <= len(vocabulary)
 
 
 def test_docvectorizer_unique():
@@ -244,20 +255,34 @@ def test_docvectorizer_unique():
         assert "foo_bar" in model_duplicates.column_label_dictionary_
 
 
-def test_docvectorizer_vocabulary():
-    model = DocVectorizer(token_dictionary=["foo", "bar"])
-    results = model.fit_transform(test_text_example)
-    assert results.shape == (5, 2)
+@given(generate_test_text_info())
+@settings(deadline=None)
+@example((test_text_example, None))
+def test_docvectorizer_vocabulary(test_text_info):
+    test_text, vocabulary = test_text_info
+    if test_text == test_text_example:
+        vocab = ["foo", "bar"]
+    else:
+        vocab = test_text[0].split()[:2]
+        note(vocab)
+    model = DocVectorizer(token_dictionary=vocab)
+    results = model.fit_transform(test_text)
+    assert results.shape == (len(test_text), 2)
+    assert model.token_dictionary == vocab
 
 
+@given(test_text_info=generate_test_text_info())
+@settings(deadline=None)
+@example(test_text_info=(test_text_example, None))
 @pytest.mark.parametrize("tokenizer", ["nltk", "tweet", "spacy", "sklearn"])
 @pytest.mark.parametrize("token_contractor", ["aggressive", "conservative"])
 @pytest.mark.parametrize("vectorizer", ["bow", "bigram"])
 @pytest.mark.parametrize("normalize", [True, False])
 @pytest.mark.parametrize("fit_unique", [False])  # TODO: add True once code is fixed.
 def test_docvectorizer_basic(
-    tokenizer, token_contractor, vectorizer, normalize, fit_unique
+    tokenizer, token_contractor, vectorizer, normalize, fit_unique, test_text_info
 ):
+    test_text, vocabulary = test_text_info
     model = DocVectorizer(
         tokenizer=tokenizer,
         token_contractor=token_contractor,
@@ -266,25 +291,34 @@ def test_docvectorizer_basic(
         fit_unique=fit_unique,
     )
 
-    result = model.fit_transform(test_text_example)
+    result = model.fit_transform(test_text)
     assert model.tokenizer_.tokenize_by == "document"
-    transform = model.transform(test_text_example)
+    transform = model.transform(test_text)
     assert np.allclose(result.toarray(), transform.toarray())
-    if vectorizer == "bow":
-        assert result.shape == (5, 7)
-    if vectorizer == "bigram":
-        assert result.shape == (5, 19)
+    if test_text == test_text_example:
+        if vectorizer == "bow":
+            assert result.shape == (5, 7)
+        if vectorizer == "bigram":
+            assert result.shape == (5, 19)
+    else:
+        assert result.shape[0] == len(test_text)
+        output_vocab = set(model.column_label_dictionary_.keys())
+        assert output_vocab.issubset(set(vocabulary))
 
 
 # Should we also test for stanza?  Stanza's pytorch dependency makes this hard.
+@given(test_text_info=generate_test_text_info())
+@settings(deadline=None)
+@example(test_text_info=(test_text_example, None))
 @pytest.mark.parametrize("tokenizer", ["nltk", "tweet", "spacy", "sklearn"])
-@pytest.mark.parametrize("token_contractor", ["aggressive", "conservative"])
+@pytest.mark.parametrize("token_contractor", ["aggressive", "conservative", None])
 @pytest.mark.parametrize("vectorizer", ["before", "after", "symmetric", "directional"])
 @pytest.mark.parametrize("normalize", [True, False])
 @pytest.mark.parametrize("dedupe_sentences", [True, False])
 def test_wordvectorizer_basic(
-        tokenizer, token_contractor, vectorizer, normalize, dedupe_sentences
+    tokenizer, token_contractor, vectorizer, normalize, dedupe_sentences, test_text_info
 ):
+    test_text, vocabulary = test_text_info
     model = WordVectorizer(
         tokenizer=tokenizer,
         token_contractor=token_contractor,
@@ -292,10 +326,29 @@ def test_wordvectorizer_basic(
         normalize=normalize,
         dedupe_sentences=dedupe_sentences,
     )
-    result = model.fit_transform(test_text_example)
+    result = model.fit_transform(test_text)
 
-    if vectorizer in ["before", "after", "symmetric"]:
-        assert result.shape == (7, 7)
-    if vectorizer == "directional":
-        assert result.shape == (7, 14)
+    if test_text == test_text_example:
+        if vectorizer in ["before", "after", "symmetric"]:
+            assert result.shape == (7, 7)
+        if vectorizer == "directional":
+            assert result.shape == (7, 14)
+    else:
+        assert result.shape[0] <= len(vocabulary)
+        if token_contractor is None:
+            output_vocab = set(
+                [
+                    x.lstrip("pre_").lstrip("post_")
+                for x in model.column_label_dictionary_.keys()
+                ]
+        )
+        assert output_vocab.issubset(set(vocabulary))
     assert type(result) == scipy.sparse.csr.csr_matrix
+
+
+def test_multitokencooccurrencevectorizer():
+    model = WordVectorizer(
+        vectorizer=MultiTokenCooccurrenceVectorizer,
+        vectorizer_kwds=_MULTITOKEN_COOCCURRENCE_VECTORIZERS["flat_1_5"]["kwds"],
+    ).fit(test_text_example)
+    assert model.representation_.shape == (7, 28)
