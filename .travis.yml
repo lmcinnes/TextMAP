@@ -6,6 +6,8 @@ language: python
 cache:
   directories:
   - $HOME/.cache/pip
+  - $HOME/.hypothesis
+  - $HOME/.pytest_cache
 
 jobs:
   include:
