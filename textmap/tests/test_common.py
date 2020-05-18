@@ -3,6 +3,8 @@ from hypothesis import given, example, settings, note, HealthCheck
 import hypothesis.strategies as st
 from hypothesis.strategies import composite
 
+import os
+
 from sklearn.utils.estimator_checks import check_estimator
 import scipy.sparse
 import numpy as np
@@ -73,6 +75,12 @@ test_matrix_zero_column.eliminate_zeros()
 ## Setup for randomized text generation
 from string import ascii_letters
 
+## don't run multiple examples when doing a coverage run
+if os.environ.get("COVERAGE") == "true":
+    DEFAULT_MAX_EXAMPLES = 2
+else:
+    DEFAULT_MAX_EXAMPLES = 100  # standard hypothesis default
+
 VOCAB_SIZE = 50
 ALPHABET = ascii_letters  # st.characters(blacklist_characters=' ')
 
@@ -137,7 +145,7 @@ def generate_test_text_info(draw):
 
 
 @given(generate_test_text_info())
-@settings(deadline=None)
+@settings(deadline=None, max_examples=DEFAULT_MAX_EXAMPLES)
 @example((test_text_example, None))
 def test_joint_nobasistransformer(test_text_info):
     test_text = test_text_info[0]
@@ -154,7 +162,7 @@ def test_joint_nobasistransformer(test_text_info):
 
 
 @given(generate_test_text_info())
-@settings(deadline=None)
+@settings(deadline=None, max_examples=DEFAULT_MAX_EXAMPLES)
 @example((test_text_example, None))
 def test_jointworddocvectorizer_vocabulary(test_text_info):
     test_text, vocabulary = test_text_info
@@ -173,7 +181,7 @@ def test_jointworddocvectorizer_vocabulary(test_text_info):
 
 
 @given(generate_test_text_info())
-@settings(deadline=None)
+@settings(deadline=None, max_examples=DEFAULT_MAX_EXAMPLES)
 @example((test_text_example, None))
 def test_jointworddocvectorizer(test_text_info):
     test_text, vocabulary = test_text_info
@@ -202,7 +210,7 @@ def test_featurebasisconverter_tokenized():
 
 
 @given(generate_test_text_info())
-@settings(deadline=None)
+@settings(deadline=None, max_examples=DEFAULT_MAX_EXAMPLES)
 @example((test_text_example, None))
 def test_wordvectorizer_todataframe(test_text_info):
     test_text, vocabulary = test_text_info
@@ -216,7 +224,7 @@ def test_wordvectorizer_todataframe(test_text_info):
 
 
 @given(generate_test_text_info())
-@settings(deadline=None)
+@settings(deadline=None, max_examples=DEFAULT_MAX_EXAMPLES)
 @example((test_text_example, None))
 def test_wordvectorizer_vocabulary(test_text_info):
     test_text, vocabulary = test_text_info
@@ -230,7 +238,7 @@ def test_wordvectorizer_vocabulary(test_text_info):
 
 
 @given(generate_test_text_info())
-@settings(deadline=None)
+@settings(deadline=None, max_examples=DEFAULT_MAX_EXAMPLES)
 @example((test_text_example, None))
 def test_docvectorizer_todataframe(test_text_info):
     test_text, vocabulary = test_text_info
@@ -256,7 +264,7 @@ def test_docvectorizer_unique():
 
 
 @given(generate_test_text_info())
-@settings(deadline=None)
+@settings(deadline=None, max_examples=DEFAULT_MAX_EXAMPLES)
 @example((test_text_example, None))
 def test_docvectorizer_vocabulary(test_text_info):
     test_text, vocabulary = test_text_info
@@ -272,7 +280,11 @@ def test_docvectorizer_vocabulary(test_text_info):
 
 
 @given(test_text_info=generate_test_text_info())
-@settings(deadline=None, suppress_health_check=[HealthCheck(3)])
+@settings(
+    deadline=None,
+    suppress_health_check=[HealthCheck(3)],
+    max_examples=DEFAULT_MAX_EXAMPLES,
+)
 @example(test_text_info=(test_text_example, None))
 @pytest.mark.parametrize("tokenizer", ["nltk", "tweet", "spacy", "sklearn"])
 @pytest.mark.parametrize("token_contractor", ["aggressive", "conservative", None])
@@ -311,7 +323,11 @@ def test_docvectorizer_basic(
 
 # Should we also test for stanza?  Stanza's pytorch dependency makes this hard.
 @given(test_text_info=generate_test_text_info())
-@settings(deadline=None, suppress_health_check=[HealthCheck(3)], max_examples=10)
+@settings(
+    deadline=None,
+    suppress_health_check=[HealthCheck(3)],
+    max_examples=min(50, DEFAULT_MAX_EXAMPLES),
+)
 @example(test_text_info=(test_text_example, None))
 @pytest.mark.parametrize("tokenizer", ["nltk", "tweet", "spacy", "sklearn"])
 @pytest.mark.parametrize("token_contractor", ["aggressive", "conservative", None])
@@ -341,13 +357,13 @@ def test_wordvectorizer_basic(
             output_vocab = set(
                 [
                     x.lstrip("pre_").lstrip("post_")
-                for x in model.column_label_dictionary_.keys()
+                    for x in model.column_label_dictionary_.keys()
                 ]
             )
             lower_vocabulary = set([x.lower() for x in vocabulary] + [" "])
             note(output_vocab.difference(lower_vocabulary))
             assert result.shape[0] <= len(vocabulary)
-            #assert output_vocab.issubset(lower_vocabulary)
+            # assert output_vocab.issubset(lower_vocabulary)
     assert type(result) == scipy.sparse.csr.csr_matrix
 
 
