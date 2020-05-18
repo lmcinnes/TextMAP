@@ -362,7 +362,7 @@ def test_wordvectorizer_basic(
             )
             lower_vocabulary = set([x.lower() for x in vocabulary] + [" "])
             note(output_vocab.difference(lower_vocabulary))
-            assert result.shape[0] <= len(vocabulary)
+            assert result.shape[0] <= len(lower_vocabulary)
             # assert output_vocab.issubset(lower_vocabulary)
     assert type(result) == scipy.sparse.csr.csr_matrix
 
