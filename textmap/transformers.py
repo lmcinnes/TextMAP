@@ -24,7 +24,9 @@ def fuzz01(val):
 
 
 @numba.njit()
-def idf_avg_weight(row, col, val, frequencies_i, frequencies_j, token_counts):
+def idf_avg_weight(
+    row, col, val, frequencies_i, frequencies_j, document_lengths, token_counts
+):
     """
 
     For a given rank 1 model frequencies_j[k], the P(token_j in document) = P(token_j) * E(tokens per document[k]).
@@ -43,7 +45,7 @@ def idf_avg_weight(row, col, val, frequencies_i, frequencies_j, token_counts):
     """
 
     expected_tokens_per_doc = (
-        np.dot(token_counts, frequencies_i) / frequencies_i.shape[0]
+        np.dot(document_lengths, frequencies_i) / frequencies_i.shape[0]
     )
 
     for idx in range(row.shape[0]):
@@ -60,7 +62,9 @@ def idf_avg_weight(row, col, val, frequencies_i, frequencies_j, token_counts):
 
 
 @numba.njit()
-def avg_idf_weight(row, col, val, frequencies_i, frequencies_j, token_counts):
+def avg_idf_weight(
+    row, col, val, frequencies_i, frequencies_j, document_lengths, token_counts
+):
     """
 
     For a given rank 1 model frequencies_j[k], the P(token_j in document) = P(token_j) * #(tokens per document[k]).
@@ -74,7 +78,7 @@ def avg_idf_weight(row, col, val, frequencies_i, frequencies_j, token_counts):
     """
 
     expected_tokens_per_doc = (
-        np.dot(token_counts, frequencies_i) / frequencies_i.shape[0]
+        np.dot(document_lengths, frequencies_i) / frequencies_i.shape[0]
     )
 
     for idx in range(row.shape[0]):
@@ -91,9 +95,9 @@ def avg_idf_weight(row, col, val, frequencies_i, frequencies_j, token_counts):
     return val
 
 
-# @numba.njit()
+@numba.njit()
 def column_kl_divergence_weight(
-    row, col, val, frequencies_i, frequencies_j, token_counts
+    row, col, val, frequencies_i, frequencies_j, document_lengths, token_counts
 ):
     """
 
@@ -106,18 +110,7 @@ def column_kl_divergence_weight(
 
     """
 
-    model_token_sum = np.zeros(frequencies_j.shape[1])
-    actual_token_sum = np.zeros(frequencies_j.shape[1])
-
-    for idx in range(row.shape[0]):
-        i = row[idx]
-        j = col[idx]
-
-        for k in range(frequencies_i.shape[1]):
-            model_token_sum[j] += (
-                frequencies_j[k, j] * frequencies_i[i, k] * token_counts[i]
-            )
-        actual_token_sum[j] = actual_token_sum[j] + val[idx]
+    model_token_sum = (document_lengths.dot(frequencies_i)).dot(frequencies_j)
 
     kl = np.zeros(frequencies_j.shape[1]).astype(np.float32)
     for idx in range(row.shape[0]):
@@ -125,9 +118,11 @@ def column_kl_divergence_weight(
         j = col[idx]
         model_prob = 0.0
         for k in range(frequencies_i.shape[1]):
-            model_prob += frequencies_j[k, j] * frequencies_i[i, k] * token_counts[i]
+            model_prob += (
+                frequencies_j[k, j] * frequencies_i[i, k] * document_lengths[i]
+            )
         model_prob = fuzz01(model_prob / model_token_sum[j])
-        actual_prob = fuzz01(val[idx] / actual_token_sum[j])
+        actual_prob = fuzz01(val[idx] / token_counts[j])
 
         kl[j] += actual_prob * np.log2(actual_prob / model_prob)
 
@@ -139,9 +134,9 @@ def column_kl_divergence_weight(
     return val
 
 
-# @numba.njit()
+@numba.njit()
 def bernoulli_kl_divergence_weight(
-    row, col, val, frequencies_i, frequencies_j, token_counts
+    row, col, val, frequencies_i, frequencies_j, document_lengths, token_counts
 ):
     """
 
@@ -166,7 +161,7 @@ def bernoulli_kl_divergence_weight(
         for k in range(frequencies_i.shape[1]):
             model_prob += frequencies_j[k, j] * frequencies_i[i, k]
 
-        actual_prob = fuzz01(val[idx] / token_counts[i])
+        actual_prob = fuzz01(val[idx] / document_lengths[i])
         model_prob = fuzz01(model_prob)
 
         kl = actual_prob * np.log2(actual_prob / model_prob) + (
@@ -187,16 +182,25 @@ _INFORMATION_FUNCTIONS = {
 
 
 def info_weight_matrix(
-    info_function, matrix, frequencies_i, frequencies_j, token_counts
+    info_function, matrix, frequencies_i, frequencies_j, document_lengths, token_counts
 ):
-    result = matrix.tocoo().copy()
+    if scipy.sparse.isspmatrix_coo(matrix):
+        matrix = matrix.copy().astype(np.float32)
+    else:
+        matrix = matrix.tocoo().astype(np.float32)
 
     new_data = info_function(
-        result.row, result.col, result.data, frequencies_i, frequencies_j, token_counts,
+        matrix.row,
+        matrix.col,
+        matrix.data,
+        frequencies_i,
+        frequencies_j,
+        document_lengths,
+        token_counts,
     )
-    result.data = new_data
-
-    return result.tocsr()
+    matrix.data = new_data
+    matrix.eliminate_zeros()
+    return matrix.tocsr()
 
 
 class InformationWeightTransformer(BaseEstimator, TransformerMixin):
@@ -215,9 +219,9 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
     information_function: callable or str
         Either a numba.jit function that takes in coo data, model frequencies, and row_sums or a string that calls
         a predefined option.  The string options are
-        * 'idf' (default)
+        * 'column_kl' (default)
+        * 'idf'
         * 'average_idf'
-        * 'column_kl'
         * 'bernoulli_kl'
 
     binarize_matrix: bool (optional)
@@ -229,8 +233,8 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
         self,
         n_components=1,
         model_type="pLSA",
-        information_function="idf",
-        binarize_matrix=None,
+        information_function="column_kl",
+        binarize_matrix=False,
     ):
 
         self.n_components = n_components
@@ -268,11 +272,10 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
                 f"Unrecognized kernel_function; should be callable or one of {_INFORMATION_FUNCTIONS.keys()}"
             )
 
-        if self.binarize_matrix == None:
-            if self.information_function in ["idf", "average idf"]:
-                self.binarize_matrix = True
-            elif self.information_function in ["column KL", "Bernoulli KL"]:
-                self.binarize_matrix = False
+        if self.information_function in ["idf", "average_idf"]:
+            self.binarize_matrix = True
+        elif self.information_function in ["column_kl", "bernoulli_kl"]:
+            self.binarize_matrix = False
 
         if self.binarize_matrix:
             binary_indicator_matrix = (X != 0).astype(np.float32)
@@ -286,8 +289,6 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
                 ).fit(binary_indicator_matrix)
             else:
                 raise ValueError("model_type is not supported")
-
-            self.token_counts_ = np.array(binary_indicator_matrix.sum(axis=1)).T[0]
 
         else:
 
@@ -324,19 +325,21 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
 
         """
         check_is_fitted(self, ["model_"])
+
         if self.binarize_matrix:
-            binary_matrix = (X != 0).astype(np.float32)
-            embedding_ = self.model_.transform(binary_matrix)
-            token_counts = np.array(binary_matrix.sum(axis=1)).T[0]
+            for_transform = (X != 0).astype(np.float32)
         else:
-            embedding_ = self.model_.transform(X.astype(np.float32))
-            token_counts = np.array((X.astype(np.float32)).sum(axis=1)).T[0]
+            for_transform = X.astype(np.float32)
+
+        document_lengths = np.array(for_transform.sum(axis=1, dtype=np.float32)).T[0]
+        token_counts = np.array(for_transform.sum(axis=0), dtype=np.float32)[0]
 
         result = info_weight_matrix(
             self._information_function,
-            X.astype(np.float32),
-            embedding_,
+            X,
+            self.model_.transform(for_transform),
             self.model_.components_,
+            document_lengths,
             token_counts,
         )
         result.eliminate_zeros()
@@ -366,18 +369,21 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
         """
 
         self.fit(X, **fit_params)
+
         if self.binarize_matrix:
             for_transform = (X != 0).astype(np.float32)
-            token_counts = np.array(for_transform.sum(axis=1)).T[0]
         else:
             for_transform = X.astype(np.float32)
-            token_counts = np.array((X.astype(np.float32)).sum(axis=1)).T[0]
+
+        document_lengths = np.array(for_transform.sum(axis=1), dtype=np.float32).T[0]
+        token_counts = np.array(for_transform.sum(axis=0), dtype=np.float32)[0]
 
         result = info_weight_matrix(
             self._information_function,
-            X.astype(np.float32),
+            X,
             self.model_.transform(for_transform),
             self.model_.components_,
+            document_lengths,
             token_counts,
         )
         result.eliminate_zeros()
@@ -392,10 +398,10 @@ def numba_multinomial_em_sparse(
     data,
     background_i,
     background_j,
-    precision=1e-4,
+    precision=1e-7,
     low_thresh=1e-5,
     bg_prior=5.0,
-    prior_strength=1.0,
+    prior_strength=0.3,
 ):
     result = np.zeros(data.shape[0], dtype=np.float32)
     mix_weights = np.zeros(indptr.shape[0] - 1, dtype=np.float32)
@@ -420,13 +426,13 @@ def numba_multinomial_em_sparse(
         mix_param = 0.5
         current_dist = mix_param * row_data + (1.0 - mix_param) * row_background
 
-        last_estimated_dist = mix_param * current_dist + (1.0 - mix_param)
-
-        change_vec = last_estimated_dist
-        change_magnitude = 1.0 + precision
+        last_mix_param = mix_param
+        change_magnitude = 1.0
 
         while (
-            change_magnitude > precision and mix_param > 1e-2 and mix_param < 1.0 - 1e-2
+            change_magnitude > precision
+            and mix_param > precision
+            and mix_param < 1.0 - precision
         ):
 
             posterior_dist = current_dist * mix_param
@@ -438,21 +444,17 @@ def numba_multinomial_em_sparse(
             mix_param = (current_dist.sum() + prior[0]) / mp
             current_dist = current_dist / current_dist.sum()
 
-            estimated_dist = mix_param * current_dist + (1.0 - mix_param)
-            change_vec = np.abs(estimated_dist - last_estimated_dist)
-            change_vec /= estimated_dist
-            change_magnitude = np.sum(change_vec)
+            change_magnitude = np.abs(mix_param - last_mix_param)
+            last_mix_param = mix_param
 
-            last_estimated_dist = estimated_dist
-
-            # zero out any small values
-            norm = 0.0
-            for n in range(current_dist.shape[0]):
-                if current_dist[n] < low_thresh:
-                    current_dist[n] = 0.0
-                else:
-                    norm += current_dist[n]
-            current_dist /= norm
+        # zero out any small values
+        norm = 0.0
+        for n in range(current_dist.shape[0]):
+            if current_dist[n] < low_thresh:
+                current_dist[n] = 0.0
+            else:
+                norm += current_dist[n]
+        current_dist /= norm
 
         result[indptr[i] : indptr[i + 1]] = current_dist
         mix_weights[i] = mix_param
@@ -464,12 +466,15 @@ def multinomial_em_sparse(
     matrix,
     background_i,
     background_j,
-    precision=1e-4,
+    precision=1e-7,
     low_thresh=1e-5,
     bg_prior=5.0,
-    prior_strength=1.0,
+    prior_strength=0.3,
 ):
-    result = matrix.tocsr().astype(np.float32)
+    if scipy.sparse.isspmatrix_csr(matrix):
+        result = matrix.copy().astype(np.float32)
+    else:
+        result = matrix.tocsr().astype(np.float32)
     new_data, mix_weights = numba_multinomial_em_sparse(
         result.indptr,
         result.indices,
@@ -503,10 +508,10 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
             Return the modified count matrix (default) or the L_1 normalization of each row.
 
         optional EM params:
-        * em_precision = 1e-4,
+        * em_precision = 1e-7, (halt EM when the mix_param changes less than this)
         * em_threshold = 1e-5, (set to zero any values below this)
-        * em_background_prior = 10.0, (a non-negative number)
-        * em_prior_strength = 0.1 (a non-negative number)
+        * em_background_prior = 5.0, (a non-negative number)
+        * em_prior_strength = 0.3 (a non-negative number)
 
        """
 
@@ -514,10 +519,10 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
         self,
         n_components=1,
         model_type="pLSA",
-        em_precision=1.0e-4,
-        em_background_prior=5.0,
-        em_threshold=1.0e-5,
-        em_prior_strength=0.2,
+        em_precision=1.0e-7,
+        em_background_prior=1.0,
+        em_threshold=1.0e-8,
+        em_prior_strength=0.5,
         normalize=False,
     ):
 
@@ -527,7 +532,6 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
         self.em_background_prior = em_background_prior
         self.em_precision = em_precision
         self.em_prior_strength = em_prior_strength
-
         self.normalize = normalize
 
     def fit(self, X, y=None, **fit_params):
