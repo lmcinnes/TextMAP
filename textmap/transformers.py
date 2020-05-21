@@ -234,7 +234,7 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
         n_components=1,
         model_type="pLSA",
         information_function="column_kl",
-        binarize_matrix=False,
+        binarize_matrix=None,
     ):
 
         self.n_components = n_components
@@ -272,10 +272,11 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
                 f"Unrecognized kernel_function; should be callable or one of {_INFORMATION_FUNCTIONS.keys()}"
             )
 
-        if self.information_function in ["idf", "average_idf"]:
-            self.binarize_matrix = True
-        elif self.information_function in ["column_kl", "bernoulli_kl"]:
-            self.binarize_matrix = False
+        if self.binarize_matrix == None:
+            if self.information_function in ["idf", "average idf"]:
+                self.binarize_matrix = True
+            elif self.information_function in ["column KL", "Bernoulli KL"]:
+                self.binarize_matrix = False
 
         if self.binarize_matrix:
             binary_indicator_matrix = (X != 0).astype(np.float32)
