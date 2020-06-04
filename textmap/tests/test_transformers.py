@@ -49,6 +49,7 @@ import numpy as np
 #     # RET.transform(test_matrix_zero_row)
 #     # RET.fit_transform(test_matrix_zero_row, bootstrap=False)
 
+
 @pytest.mark.parametrize("n_components", [1, 2])
 @pytest.mark.parametrize("model_type", ["pLSA"])
 @pytest.mark.parametrize("em_precision", [1e-3, 1e-4])
@@ -57,13 +58,13 @@ import numpy as np
 @pytest.mark.parametrize("em_prior_strength", [1.0, 10.0])
 @pytest.mark.parametrize("normalize", [True, False])
 def test_re_transformer(
-        n_components,
-        model_type,
-        em_precision,
-        em_background_prior,
-        em_threshold,
-        em_prior_strength,
-        normalize,
+    n_components,
+    model_type,
+    em_precision,
+    em_background_prior,
+    em_threshold,
+    em_prior_strength,
+    normalize,
 ):
     RET = RemoveEffectsTransformer(
         n_components=n_components,
@@ -87,13 +88,13 @@ def test_re_transformer(
 @pytest.mark.parametrize("em_prior_strength", [1.0, 10.0])
 @pytest.mark.parametrize("normalize", [True, False])
 def test_re_transformer_zero_column(
-        n_components,
-        model_type,
-        em_precision,
-        em_background_prior,
-        em_threshold,
-        em_prior_strength,
-        normalize,
+    n_components,
+    model_type,
+    em_precision,
+    em_background_prior,
+    em_threshold,
+    em_prior_strength,
+    normalize,
 ):
     RET = RemoveEffectsTransformer(
         n_components=n_components,
@@ -117,13 +118,13 @@ def test_re_transformer_zero_column(
 @pytest.mark.parametrize("em_prior_strength", [1.0, 10.0])
 @pytest.mark.parametrize("normalize", [True, False])
 def test_re_transformer_zero_row(
-        n_components,
-        model_type,
-        em_precision,
-        em_background_prior,
-        em_threshold,
-        em_prior_strength,
-        normalize,
+    n_components,
+    model_type,
+    em_precision,
+    em_background_prior,
+    em_threshold,
+    em_prior_strength,
+    normalize,
 ):
     RET = RemoveEffectsTransformer(
         n_components=n_components,
@@ -141,12 +142,14 @@ def test_re_transformer_zero_row(
 
 @pytest.mark.parametrize("n_components", [1, 2])
 @pytest.mark.parametrize("model_type", ["pLSA"])
-@pytest.mark.parametrize("information_function", ['idf', 'average_idf', 'column_kl', 'bernoulli_kl'])
-def test_iw_transformer(
-        n_components, model_type, information_function
-):
+@pytest.mark.parametrize(
+    "information_function", ["idf", "average_idf", "column_kl", "bernoulli_kl"]
+)
+def test_iw_transformer(n_components, model_type, information_function):
     IWT = InformationWeightTransformer(
-        n_components=n_components, model_type=model_type, information_function=information_function
+        n_components=n_components,
+        model_type=model_type,
+        information_function=information_function,
     )
     result = IWT.fit_transform(test_matrix)
     transform = IWT.transform(test_matrix)
@@ -157,12 +160,14 @@ def test_iw_transformer(
 
 @pytest.mark.parametrize("n_components", [1, 2])
 @pytest.mark.parametrize("model_type", ["pLSA"])
-@pytest.mark.parametrize("information_function", ['idf', 'average_idf', 'column_kl', 'bernoulli_kl'])
-def test_iw_transformer_zer_column(
-        n_components, model_type, information_function
-):
+@pytest.mark.parametrize(
+    "information_function", ["idf", "average_idf", "column_kl", "bernoulli_kl"]
+)
+def test_iw_transformer_zer_column(n_components, model_type, information_function):
     IWT = InformationWeightTransformer(
-        n_components=n_components, model_type=model_type, information_function=information_function
+        n_components=n_components,
+        model_type=model_type,
+        information_function=information_function,
     )
     result = IWT.fit_transform(test_matrix_zero_column)
     transform = IWT.transform(test_matrix_zero_column)
@@ -173,18 +178,21 @@ def test_iw_transformer_zer_column(
 
 @pytest.mark.parametrize("n_components", [1, 2])
 @pytest.mark.parametrize("model_type", ["pLSA"])
-@pytest.mark.parametrize("information_function", ['idf', 'average_idf', 'column_kl', 'bernoulli_kl'])
-def test_iw_transformer_zer_row_plsa(
-        n_components, model_type, information_function
-):
+@pytest.mark.parametrize(
+    "information_function", ["idf", "average_idf", "column_kl", "bernoulli_kl"]
+)
+def test_iw_transformer_zer_row_plsa(n_components, model_type, information_function):
     IWT = InformationWeightTransformer(
-        n_components=n_components, model_type=model_type, information_function=information_function
+        n_components=n_components,
+        model_type=model_type,
+        information_function=information_function,
     )
     result = IWT.fit_transform(test_matrix_zero_row)
     transform = IWT.transform(test_matrix_zero_row)
     print(transform.toarray())
     print(result.toarray())
     assert np.allclose(result.toarray(), transform.toarray())
+
 
 # @pytest.mark.parametrize("n_components", [1, 2])
 # @pytest.mark.parametrize("model_type", ["pLSA"])

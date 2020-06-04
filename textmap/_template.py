@@ -19,7 +19,8 @@ class TemplateEstimator(BaseEstimator):
     demo_param : str, default='demo_param'
         A parameter used for demonstation of how to pass and store paramters.
     """
-    def __init__(self, demo_param='demo_param'):
+
+    def __init__(self, demo_param="demo_param"):
         self.demo_param = demo_param
 
     def fit(self, X, y):
@@ -57,7 +58,7 @@ class TemplateEstimator(BaseEstimator):
             Returns an array of ones.
         """
         X = check_array(X, accept_sparse=True)
-        check_is_fitted(self, 'is_fitted_')
+        check_is_fitted(self, "is_fitted_")
         return np.ones(X.shape[0], dtype=np.int64)
 
 
@@ -81,7 +82,8 @@ class TemplateClassifier(BaseEstimator, ClassifierMixin):
     classes_ : ndarray, shape (n_classes,)
         The classes seen at :meth:`fit`.
     """
-    def __init__(self, demo_param='demo'):
+
+    def __init__(self, demo_param="demo"):
         self.demo_param = demo_param
 
     def fit(self, X, y):
@@ -124,7 +126,7 @@ class TemplateClassifier(BaseEstimator, ClassifierMixin):
             seen during fit.
         """
         # Check is fit had been called
-        check_is_fitted(self, ['X_', 'y_'])
+        check_is_fitted(self, ["X_", "y_"])
 
         # Input validation
         X = check_array(X)
@@ -149,7 +151,8 @@ class TemplateTransformer(BaseEstimator, TransformerMixin):
     n_features_ : int
         The number of features of the data passed to :meth:`fit`.
     """
-    def __init__(self, demo_param='demo'):
+
+    def __init__(self, demo_param="demo"):
         self.demo_param = demo_param
 
     def fit(self, X, y=None):
@@ -190,7 +193,7 @@ class TemplateTransformer(BaseEstimator, TransformerMixin):
             in ``X``.
         """
         # Check is fit had been called
-        check_is_fitted(self, 'n_features_')
+        check_is_fitted(self, "n_features_")
 
         # Input validation
         X = check_array(X, accept_sparse=True)
@@ -198,6 +201,7 @@ class TemplateTransformer(BaseEstimator, TransformerMixin):
         # Check that the input is of the same shape as the one passed
         # during fit.
         if X.shape[1] != self.n_features_:
-            raise ValueError('Shape of input is different from what was seen'
-                             'in `fit`')
+            raise ValueError(
+                "Shape of input is different from what was seen" "in `fit`"
+            )
         return np.sqrt(X)

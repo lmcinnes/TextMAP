@@ -5,8 +5,8 @@ from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
 from vectorizers import TokenCooccurrenceVectorizer
 from nltk.tokenize import word_tokenize, sent_tokenize
 
-class WordMAP (BaseEstimator, TransformerMixin):
 
+class WordMAP(BaseEstimator, TransformerMixin):
     def __init__(self, sent_tokenizer):
         pass
 
@@ -18,4 +18,3 @@ class WordMAP (BaseEstimator, TransformerMixin):
 
     def fit_transform(self, X, y=None, **fit_params):
         pass
-
