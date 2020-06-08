@@ -4,7 +4,8 @@ from vectorizers import NgramVectorizer
 
 from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
 
-class DocMAP (BaseEstimator, TransformerMixin):
+
+class DocMAP(BaseEstimator, TransformerMixin):
     """
     Doc2Vec replacement
     """
@@ -12,13 +13,14 @@ class DocMAP (BaseEstimator, TransformerMixin):
     pass
 
 
-class TopicMAP (BaseEstimator, TransformerMixin):
+class TopicMAP(BaseEstimator, TransformerMixin):
     """
     LDA replacement
     Joint word/document embedding.
     Topics are points in joint word/document space.
     Topics have co-ordinates and descriptions (weighted sets of words learned from the fit).
     """
+
     def __init__(self):
 
         pass
@@ -48,4 +50,5 @@ class TopicMAP (BaseEstimator, TransformerMixin):
         :return:
         """
         pass
+
     pass

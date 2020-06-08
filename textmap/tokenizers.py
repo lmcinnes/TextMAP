@@ -21,6 +21,12 @@ except ImportError:
     warn(
         "The SpaCy library could not be imported SpaCyTokenizer will not be available."
     )
+try:
+    import tokenizers
+except ImportError:
+    warn(
+        "The tokenizers library could not be imported SpaCyTokenizer will not be available."
+    )
 
 
 class BaseTokenizer(BaseEstimator, TransformerMixin):
@@ -100,7 +106,6 @@ class BaseTokenizer(BaseEstimator, TransformerMixin):
 
 ## A default NLTK Tokenizer model
 class _nltk_default_(nltk.tokenize.api.TokenizerI):
-
     def tokenize(self, X):
         return word_tokenize(X)
 
@@ -432,9 +437,9 @@ class SpacyTokenizer(BaseTokenizer):
 
         # We need to handle data types propers, Spacy does not like numpy.str_ types for example.
         if type(X[0]) != str:
-            type_cast = lambda X : list(map(str, X))
+            type_cast = lambda X: list(map(str, X))
         else:
-            type_cast = lambda X : X
+            type_cast = lambda X: X
 
         # A function for adjusting the case
         if self.lower_case:
@@ -463,6 +468,71 @@ class SpacyTokenizer(BaseTokenizer):
                     for doc in self.nlp.pipe(type_cast(X))
                 ]
             )
+        else:
+            raise ValueError(
+                'The tokenize_by parameter must be "document",  "sentence", or "sentence_by_document".'
+            )
+
+        return self
+
+
+class BertWordPieceTokenizer(BaseTokenizer):
+    def __init__(
+        self,
+        tokenize_by="document",
+        nlp="default",
+        lower_case=True,
+        vocab_file=None,
+        corpus_file=None,
+    ):
+        super().__init__(tokenize_by, nlp, lower_case)
+        self.vocab_file = vocab_file
+        self.corpus_file = corpus_file
+
+    @property
+    def nlp(self):
+        return self._nlp
+
+    @nlp.setter
+    def nlp(self, model):
+        if model == "default":
+            if self.vocab_file is None:
+                self._tokenizer = tokenizers.BertWordPieceTokenizer()
+                if self.corpus_file is None:
+                    raise ValueError(
+                        "BertWordPieceTokenizer requires either a vocab_file or a corpus file to be specified"
+                    )
+                self._tokenizer.train(self.corpus_file)
+            else:
+                self._tokenizer = tokenizers.BertWordPieceTokenizer(self.vocab_file)
+            self._nlp = lambda doc: self._tokenizer.encode(doc).tokens
+        else:
+            self._nlp = model
+
+    def fit(self, X, **fit_params):
+        """
+
+        Parameters
+        ----------
+        X: collection
+            The list of documents
+
+        Returns
+        -------
+        self
+        """
+
+        if self.tokenize_by in ["sentence", "sentence_by_document"]:
+            self.tokenization_ = self._flatten(
+                [
+                    tuple([tuple(self.nlp(sent)) for sent in sent_tokenize(doc)])
+                    for doc in X
+                ]
+            )
+
+        elif self.tokenize_by == "document":
+            self.tokenization_ = tuple([tuple(self.nlp(doc)) for doc in X])
+
         else:
             raise ValueError(
                 'The tokenize_by parameter must be "document",  "sentence", or "sentence_by_document".'
