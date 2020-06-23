@@ -100,6 +100,12 @@ _MULTITOKEN_COOCCURRENCE_VECTORIZERS = {
     },
 }
 
+############ DEBUG ###############
+import time
+def ts():
+    return time.ctime(time.time())
+##################################
+
 
 class WordVectorizer(BaseEstimator, TransformerMixin):
     """
@@ -168,6 +174,8 @@ class WordVectorizer(BaseEstimator, TransformerMixin):
         self.dedupe_sentences = dedupe_sentences
         self.token_dictionary = token_dictionary
 
+        print(ts(), time.time(), "Created WordVectorizer") ####### DEBUG #######
+
     def fit(self, X, y=None, **fit_params):
         """
         Learns a good representation of a word as appropriately weighted count of the the
@@ -195,6 +203,7 @@ class WordVectorizer(BaseEstimator, TransformerMixin):
             tokens_by_sentence = self.tokenizer_.fit_transform(X)
         else:
             tokens_by_sentence = X
+        print(ts(), time.time(), "Tokenized") ####### DEBUG #######
 
         # TOKEN CONTRACTOR
         # Takes a sequence of token sequences and contracts surprisingly frequent adjacent tokens
@@ -209,12 +218,16 @@ class WordVectorizer(BaseEstimator, TransformerMixin):
             tokens_by_sentence = self.token_contractor_.fit_transform(
                 tokens_by_sentence
             )
+        print(ts(), time.time(), "Contracted MWEs") ####### DEBUG #######
+
 
         # DEDUPE
         # Remove duplicate sentences.  Repeated sentences (such as signature blocks) often
         # don't provide any extra linguistic information about word usage.
         if self.dedupe_sentences:
             tokens_by_sentence = tuple(set(tokens_by_sentence))
+        print(ts(), time.time(), "Deduped") ####### DEBUG #######
+
 
         # VECTORIZE
         # Convert from a sequence of sequences of tokens to a sequence of fixed width numeric
@@ -237,6 +250,7 @@ class WordVectorizer(BaseEstimator, TransformerMixin):
             # This should only be the case where all the tokenizers are also set to None
             # and the user passed in a csr matrix.
             self.representation_ = tokens_by_sentence
+        print(ts(), time.time(), "Cooccurrence vectorized") ####### DEBUG #######
 
         # NORMALIZE
         if self.return_normalized:
