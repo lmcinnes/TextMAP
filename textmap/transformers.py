@@ -202,6 +202,20 @@ def info_weight_matrix(
     matrix.eliminate_zeros()
     return matrix.tocsr()
 
+class SingleComponentModel(BaseEstimator, TransformerMixin):
+
+    def fit(self, X, y=None, **fit_params):
+        self.embedding_ = np.ones((X.shape[0], 1), dtype=np.float32)
+        if scipy.sparse.issparse(X):
+            self.components_ = np.array(X.sum(axis=0), dtype=np.float32)
+        else:
+            self.components_ = X.sum(axis=0)[:, np.newaxis]
+        self.components_ /= self.components_.sum()
+
+        return self
+
+    def transform(self, X, y=None):
+        return np.ones((X.shape[0], 1), dtype=np.float32)
 
 class InformationWeightTransformer(BaseEstimator, TransformerMixin):
     """
@@ -280,7 +294,9 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
 
         if self.binarize_matrix:
             binary_indicator_matrix = (X != 0).astype(np.float32)
-            if self.model_type == "pLSA":
+            if self.n_components == 2 and self.model_type == "pLSA":
+                self.model_ = SingleComponentModel().fit(binary_indicator_matrix)
+            elif self.model_type == "pLSA":
                 self.model_ = enstop.StreamedPLSA(
                     n_components=self.n_components, **fit_params
                 ).fit(binary_indicator_matrix)
@@ -292,7 +308,8 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
                 raise ValueError("model_type is not supported")
 
         else:
-
+            if self.n_components == 1 and self.model_type == "pLSA":
+                self.model_ = SingleComponentModel().fit(X)
             if self.model_type == "pLSA":
                 self.model_ = enstop.PLSA(
                     n_components=self.n_components, **fit_params
@@ -553,6 +570,8 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
         self
 
         """
+        if self.n_components == 1 and self.model_type == "pLSA":
+            self.model_ = SingleComponentModel().fit(X)
         if self.model_type == "pLSA":
             self.model_ = enstop.StreamedPLSA(n_components=self.n_components, **fit_params).fit(
                 X
