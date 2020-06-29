@@ -294,7 +294,7 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
 
         if self.binarize_matrix:
             binary_indicator_matrix = (X != 0).astype(np.float32)
-            if self.n_components == 2 and self.model_type == "pLSA":
+            if self.n_components == 1 and self.model_type == "pLSA":
                 self.model_ = SingleComponentModel().fit(binary_indicator_matrix)
             elif self.model_type == "pLSA":
                 self.model_ = enstop.StreamedPLSA(
@@ -310,7 +310,7 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
         else:
             if self.n_components == 1 and self.model_type == "pLSA":
                 self.model_ = SingleComponentModel().fit(X)
-            if self.model_type == "pLSA":
+            elif self.model_type == "pLSA":
                 self.model_ = enstop.PLSA(
                     n_components=self.n_components, **fit_params
                 ).fit(X.astype(np.float32))
@@ -572,7 +572,7 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
         """
         if self.n_components == 1 and self.model_type == "pLSA":
             self.model_ = SingleComponentModel().fit(X)
-        if self.model_type == "pLSA":
+        elif self.model_type == "pLSA":
             self.model_ = enstop.StreamedPLSA(n_components=self.n_components, **fit_params).fit(
                 X
             )
