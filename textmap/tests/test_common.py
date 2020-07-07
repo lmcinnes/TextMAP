@@ -286,7 +286,7 @@ def test_docvectorizer_vocabulary(test_text_info):
     max_examples=DEFAULT_MAX_EXAMPLES,
 )
 @example(test_text_info=(test_text_example, None))
-@pytest.mark.parametrize("tokenizer", ["nltk", "tweet", "spacy", "sklearn"])
+@pytest.mark.parametrize("tokenizer", ["nltk", "tweet", "sklearn"])
 @pytest.mark.parametrize("token_contractor", ["aggressive", "conservative", None])
 @pytest.mark.parametrize("vectorizer", ["bow", "bigram"])
 @pytest.mark.parametrize("normalize", [True, False])
@@ -314,7 +314,7 @@ def test_docvectorizer_basic(
             assert result.shape == (5, 19)
     else:
         assert result.shape[0] == len(test_text)
-        if (token_contractor is None) and (vectorizer == "bow") and (tokenizer != "spacy"):
+        if (token_contractor is None) and (vectorizer == "bow"):
             output_vocab = set(model.column_label_dictionary_.keys())
             lower_vocabulary = set([x.lower() for x in vocabulary] + [" "])
             note(output_vocab.difference(lower_vocabulary))
@@ -329,7 +329,7 @@ def test_docvectorizer_basic(
     max_examples=min(50, DEFAULT_MAX_EXAMPLES),
 )
 @example(test_text_info=(test_text_example, None))
-@pytest.mark.parametrize("tokenizer", ["nltk", "tweet", "spacy", "sklearn"])
+@pytest.mark.parametrize("tokenizer", ["nltk", "tweet", "sklearn"])
 @pytest.mark.parametrize("token_contractor", ["aggressive", "conservative", None])
 @pytest.mark.parametrize("vectorizer", ["before", "after", "symmetric", "directional"])
 @pytest.mark.parametrize("normalize", [True, False])
@@ -353,7 +353,7 @@ def test_wordvectorizer_basic(
         if vectorizer == "directional":
             assert result.shape == (7, 14)
     else:
-        if token_contractor is None and tokenizer != "spacy":
+        if token_contractor is None:
             output_vocab = set(
                 [
                     x.lstrip("pre_").lstrip("post_")
