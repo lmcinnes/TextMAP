@@ -260,6 +260,7 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
         self
 
         """
+        X.eliminate_zeros()
         if X.nnz == 0:
             warn("Cannot fit an empty matrix")
             return self
@@ -371,6 +372,10 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
             model vs the uniformly random distribution of values.
 
         """
+        X.eliminate_zeros()
+        if X.nnz == 0:
+            warn("Cannot fit an empty matrix")
+            return X
 
         self.fit(X, **fit_params)
 
