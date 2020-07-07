@@ -260,6 +260,9 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
         self
 
         """
+        if X.nnz == 0:
+            warn("Cannot fit an empty matrix")
+            return self
 
         if callable(self.information_function):
             self._information_function = self.information_function
@@ -378,16 +381,18 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
 
         document_lengths = np.array(for_transform.sum(axis=1), dtype=np.float32).T[0]
         token_counts = np.array(for_transform.sum(axis=0), dtype=np.float32)[0]
-
-        result = info_weight_matrix(
-            self._information_function,
-            X,
-            self.model_.transform(for_transform),
-            self.model_.components_,
-            document_lengths,
-            token_counts,
-        )
-        result.eliminate_zeros()
+        if X.nnz != 0:
+            result = info_weight_matrix(
+                self._information_function,
+                X,
+                self.model_.transform(for_transform),
+                self.model_.components_,
+                document_lengths,
+                token_counts,
+            )
+            result.eliminate_zeros()
+        else:
+            result = X
 
         return result
 
@@ -468,7 +473,7 @@ def multinomial_em_sparse(
     background_i,
     background_j,
     precision=1e-7,
-    low_thresh=1e-5,
+    low_thresh=1e-7,
     bg_prior=5.0,
     prior_strength=0.3,
 ):
@@ -553,9 +558,14 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
         self
 
         """
+        X.eliminate_zeros()
+        if X.nnz == 0:
+            warn("Cannot fit an empty matrix")
+            return self
+
         if self.model_type == "pLSA":
             self.model_ = enstop.PLSA(n_components=self.n_components, **fit_params).fit(
-                X
+                normalize(X, norm="l1")
             )
         elif self.model_type == "EnsTop":
             self.model_ = enstop.EnsembleTopics(
@@ -630,6 +640,8 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
 
         """
         self.fit(X, **fit_params)
+        if X.nnz == 0:
+            return X
         return self.transform(X)
 
 
