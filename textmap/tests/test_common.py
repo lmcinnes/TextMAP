@@ -314,7 +314,7 @@ def test_docvectorizer_basic(
             assert result.shape == (5, 19)
     else:
         assert result.shape[0] == len(test_text)
-        if (token_contractor is None) and (vectorizer == "bow"):
+        if (token_contractor is None) and (vectorizer == "bow") and (tokenizer != "spacy"):
             output_vocab = set(model.column_label_dictionary_.keys())
             lower_vocabulary = set([x.lower() for x in vocabulary] + [" "])
             note(output_vocab.difference(lower_vocabulary))
@@ -353,7 +353,7 @@ def test_wordvectorizer_basic(
         if vectorizer == "directional":
             assert result.shape == (7, 14)
     else:
-        if token_contractor is None:
+        if token_contractor is None and tokenizer != "spacy":
             output_vocab = set(
                 [
                     x.lstrip("pre_").lstrip("post_")
