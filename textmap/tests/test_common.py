@@ -145,7 +145,11 @@ def generate_test_text_info(draw):
 
 
 @given(generate_test_text_info())
-@settings(deadline=None, max_examples=DEFAULT_MAX_EXAMPLES)
+@settings(
+    deadline=None,
+    suppress_health_check=[HealthCheck(3)],
+    max_examples=DEFAULT_MAX_EXAMPLES,
+)
 @example((test_text_example, None))
 def test_joint_nobasistransformer(test_text_info):
     test_text = test_text_info[0]
@@ -162,7 +166,11 @@ def test_joint_nobasistransformer(test_text_info):
 
 
 @given(generate_test_text_info())
-@settings(deadline=None, max_examples=DEFAULT_MAX_EXAMPLES)
+@settings(
+    deadline=None,
+    suppress_health_check=[HealthCheck(3)],
+    max_examples=DEFAULT_MAX_EXAMPLES,
+)
 @example((test_text_example, None))
 def test_jointworddocvectorizer_vocabulary(test_text_info):
     test_text, vocabulary = test_text_info
@@ -181,7 +189,11 @@ def test_jointworddocvectorizer_vocabulary(test_text_info):
 
 
 @given(generate_test_text_info())
-@settings(deadline=None, max_examples=DEFAULT_MAX_EXAMPLES)
+@settings(
+    deadline=None,
+    suppress_health_check=[HealthCheck(3)],
+    max_examples=DEFAULT_MAX_EXAMPLES,
+)
 @example((test_text_example, None))
 def test_jointworddocvectorizer(test_text_info):
     test_text, vocabulary = test_text_info
@@ -210,7 +222,11 @@ def test_featurebasisconverter_tokenized():
 
 
 @given(generate_test_text_info())
-@settings(deadline=None, max_examples=DEFAULT_MAX_EXAMPLES)
+@settings(
+    deadline=None,
+    suppress_health_check=[HealthCheck(3)],
+    max_examples=DEFAULT_MAX_EXAMPLES,
+)
 @example((test_text_example, None))
 def test_wordvectorizer_todataframe(test_text_info):
     test_text, vocabulary = test_text_info
@@ -224,7 +240,11 @@ def test_wordvectorizer_todataframe(test_text_info):
 
 
 @given(generate_test_text_info())
-@settings(deadline=None, max_examples=DEFAULT_MAX_EXAMPLES)
+@settings(
+    deadline=None,
+    suppress_health_check=[HealthCheck(3)],
+    max_examples=DEFAULT_MAX_EXAMPLES,
+)
 @example((test_text_example, None))
 def test_wordvectorizer_vocabulary(test_text_info):
     test_text, vocabulary = test_text_info
@@ -238,7 +258,11 @@ def test_wordvectorizer_vocabulary(test_text_info):
 
 
 @given(generate_test_text_info())
-@settings(deadline=None, max_examples=DEFAULT_MAX_EXAMPLES)
+@settings(
+    deadline=None,
+    suppress_health_check=[HealthCheck(3)],
+    max_examples=DEFAULT_MAX_EXAMPLES,
+)
 @example((test_text_example, None))
 def test_docvectorizer_todataframe(test_text_info):
     test_text, vocabulary = test_text_info
@@ -264,7 +288,11 @@ def test_docvectorizer_unique():
 
 
 @given(generate_test_text_info())
-@settings(deadline=None, max_examples=DEFAULT_MAX_EXAMPLES)
+@settings(
+    deadline=None,
+    suppress_health_check=[HealthCheck(3)],
+    max_examples=DEFAULT_MAX_EXAMPLES,
+)
 @example((test_text_example, None))
 def test_docvectorizer_vocabulary(test_text_info):
     test_text, vocabulary = test_text_info
