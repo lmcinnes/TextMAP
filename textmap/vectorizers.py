@@ -100,6 +100,12 @@ _MULTITOKEN_COOCCURRENCE_VECTORIZERS = {
     },
 }
 
+############ DEBUG ###############
+import time
+def ts():
+    return time.ctime(time.time())
+##################################
+
 
 class WordVectorizer(BaseEstimator, TransformerMixin):
     """
