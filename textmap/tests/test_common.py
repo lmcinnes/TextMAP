@@ -145,7 +145,11 @@ def generate_test_text_info(draw):
 
 
 @given(generate_test_text_info())
-@settings(deadline=None, max_examples=DEFAULT_MAX_EXAMPLES)
+@settings(
+    deadline=None,
+    suppress_health_check=[HealthCheck(3)],
+    max_examples=DEFAULT_MAX_EXAMPLES,
+)
 @example((test_text_example, None))
 def test_joint_nobasistransformer(test_text_info):
     test_text = test_text_info[0]
@@ -162,7 +166,11 @@ def test_joint_nobasistransformer(test_text_info):
 
 
 @given(generate_test_text_info())
-@settings(deadline=None, max_examples=DEFAULT_MAX_EXAMPLES)
+@settings(
+    deadline=None,
+    suppress_health_check=[HealthCheck(3)],
+    max_examples=DEFAULT_MAX_EXAMPLES,
+)
 @example((test_text_example, None))
 def test_jointworddocvectorizer_vocabulary(test_text_info):
     test_text, vocabulary = test_text_info
@@ -170,7 +178,7 @@ def test_jointworddocvectorizer_vocabulary(test_text_info):
     if test_text == test_text_example:
         vocab = (["foo", "bar", "pok"],)
     else:
-        vocab = test_text[0].split()[:vocabulary_size]
+        vocab = list(set(test_text[0].split()))[:vocabulary_size]
     model = JointWordDocVectorizer(feature_basis_converter=None, token_dictionary=vocab)
     result = model.fit_transform(test_text)
     assert isinstance(result, scipy.sparse.csr_matrix)
@@ -181,7 +189,11 @@ def test_jointworddocvectorizer_vocabulary(test_text_info):
 
 
 @given(generate_test_text_info())
-@settings(deadline=None, max_examples=DEFAULT_MAX_EXAMPLES)
+@settings(
+    deadline=None,
+    suppress_health_check=[HealthCheck(3)],
+    max_examples=DEFAULT_MAX_EXAMPLES,
+)
 @example((test_text_example, None))
 def test_jointworddocvectorizer(test_text_info):
     test_text, vocabulary = test_text_info
@@ -210,7 +222,11 @@ def test_featurebasisconverter_tokenized():
 
 
 @given(generate_test_text_info())
-@settings(deadline=None, max_examples=DEFAULT_MAX_EXAMPLES)
+@settings(
+    deadline=None,
+    suppress_health_check=[HealthCheck(3)],
+    max_examples=DEFAULT_MAX_EXAMPLES,
+)
 @example((test_text_example, None))
 def test_wordvectorizer_todataframe(test_text_info):
     test_text, vocabulary = test_text_info
@@ -224,21 +240,29 @@ def test_wordvectorizer_todataframe(test_text_info):
 
 
 @given(generate_test_text_info())
-@settings(deadline=None, max_examples=DEFAULT_MAX_EXAMPLES)
+@settings(
+    deadline=None,
+    suppress_health_check=[HealthCheck(3)],
+    max_examples=DEFAULT_MAX_EXAMPLES,
+)
 @example((test_text_example, None))
 def test_wordvectorizer_vocabulary(test_text_info):
     test_text, vocabulary = test_text_info
     if test_text == test_text_example:
         vocab = ["foo", "bar"]
     else:
-        vocab = test_text[0].split()[:2]
+        vocab = list(set(test_text[0].split()))[:2]
     model = WordVectorizer(token_dictionary=vocab).fit(test_text)
     assert model.representation_.shape == (2, 4)
     assert model.token_dictionary == vocab
 
 
 @given(generate_test_text_info())
-@settings(deadline=None, max_examples=DEFAULT_MAX_EXAMPLES)
+@settings(
+    deadline=None,
+    suppress_health_check=[HealthCheck(3)],
+    max_examples=DEFAULT_MAX_EXAMPLES,
+)
 @example((test_text_example, None))
 def test_docvectorizer_todataframe(test_text_info):
     test_text, vocabulary = test_text_info
@@ -264,14 +288,18 @@ def test_docvectorizer_unique():
 
 
 @given(generate_test_text_info())
-@settings(deadline=None, max_examples=DEFAULT_MAX_EXAMPLES)
+@settings(
+    deadline=None,
+    suppress_health_check=[HealthCheck(3)],
+    max_examples=DEFAULT_MAX_EXAMPLES,
+)
 @example((test_text_example, None))
 def test_docvectorizer_vocabulary(test_text_info):
     test_text, vocabulary = test_text_info
     if test_text == test_text_example:
         vocab = ["foo", "bar"]
     else:
-        vocab = test_text[0].split()[:2]
+        vocab = list(set(test_text[0].split()))[:2]
         note(vocab)
     model = DocVectorizer(token_dictionary=vocab)
     results = model.fit_transform(test_text)
@@ -286,7 +314,7 @@ def test_docvectorizer_vocabulary(test_text_info):
     max_examples=DEFAULT_MAX_EXAMPLES,
 )
 @example(test_text_info=(test_text_example, None))
-@pytest.mark.parametrize("tokenizer", ["nltk", "tweet", "spacy", "sklearn"])
+@pytest.mark.parametrize("tokenizer", ["nltk", "tweet", "sklearn"])
 @pytest.mark.parametrize("token_contractor", ["aggressive", "conservative", None])
 @pytest.mark.parametrize("vectorizer", ["bow", "bigram"])
 @pytest.mark.parametrize("normalize", [True, False])
@@ -329,7 +357,7 @@ def test_docvectorizer_basic(
     max_examples=min(50, DEFAULT_MAX_EXAMPLES),
 )
 @example(test_text_info=(test_text_example, None))
-@pytest.mark.parametrize("tokenizer", ["nltk", "tweet", "spacy", "sklearn"])
+@pytest.mark.parametrize("tokenizer", ["nltk", "tweet", "sklearn"])
 @pytest.mark.parametrize("token_contractor", ["aggressive", "conservative", None])
 @pytest.mark.parametrize("vectorizer", ["before", "after", "symmetric", "directional"])
 @pytest.mark.parametrize("normalize", [True, False])

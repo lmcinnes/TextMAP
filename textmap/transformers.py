@@ -274,6 +274,10 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
         self
 
         """
+        X.eliminate_zeros()
+        if X.nnz == 0:
+            warn("Cannot fit an empty matrix")
+            return self
 
         if callable(self.information_function):
             self._information_function = self.information_function
@@ -385,6 +389,10 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
             model vs the uniformly random distribution of values.
 
         """
+        X.eliminate_zeros()
+        if X.nnz == 0:
+            warn("Cannot fit an empty matrix")
+            return X
 
         self.fit(X, **fit_params)
 
@@ -395,16 +403,18 @@ class InformationWeightTransformer(BaseEstimator, TransformerMixin):
 
         document_lengths = np.array(for_transform.sum(axis=1), dtype=np.float32).T[0]
         token_counts = np.array(for_transform.sum(axis=0), dtype=np.float32)[0]
-
-        result = info_weight_matrix(
-            self._information_function,
-            X,
-            self.model_.transform(for_transform),
-            self.model_.components_,
-            document_lengths,
-            token_counts,
-        )
-        result.eliminate_zeros()
+        if X.nnz != 0:
+            result = info_weight_matrix(
+                self._information_function,
+                X,
+                self.model_.transform(for_transform),
+                self.model_.components_,
+                document_lengths,
+                token_counts,
+            )
+            result.eliminate_zeros()
+        else:
+            result = X
 
         return result
 
@@ -570,6 +580,11 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
         self
 
         """
+        X.eliminate_zeros()
+        if X.nnz == 0:
+            warn("Cannot fit an empty matrix")
+            return self
+
         if self.n_components == 1 and self.model_type == "pLSA":
             self.model_ = SingleComponentModel().fit(X)
         elif self.model_type == "pLSA":
@@ -649,6 +664,8 @@ class RemoveEffectsTransformer(BaseEstimator, TransformerMixin):
 
         """
         self.fit(X, **fit_params)
+        if X.nnz == 0:
+            return X
         return self.transform(X)
 
 

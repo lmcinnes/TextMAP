@@ -442,6 +442,7 @@ class DocVectorizer(BaseEstimator, TransformerMixin):
                 f"Sorry vectorizer must be a valid Vectorizer you passed in {self.vectorizer}"
             )
             # TODO: validate parameter strings
+
         if self.fit_unique:
             raise ValueError(
                 f"Sorry fit_unique=True is not currently working.\n"
