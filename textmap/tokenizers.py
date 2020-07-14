@@ -7,6 +7,9 @@ import nltk.tokenize.api
 from sklearn.feature_extraction.text import CountVectorizer
 import numpy as np
 
+import dask
+import dask.bag
+
 # Optional tokenization packages
 try:
     import stanza
@@ -153,20 +156,24 @@ class NLTKTokenizer(BaseTokenizer):
         """
 
         if self.lower_case:
-            tokenize = lambda d: (w.lower() for w in self.nlp.tokenize(d))
+            tokenize = lambda d: tuple([w.lower() for w in self.nlp.tokenize(d)])
         else:
             tokenize = lambda d: tuple(self.nlp.tokenize(d))
 
-        if self.tokenize_by in ["sentence", "sentence_by_document"]:
-            self.tokenization_ = self._flatten(
-                [
-                    tuple([tuple(tokenize(sent)) for sent in sent_tokenize(doc)])
-                    for doc in X
-                ]
-            )
+        # Ensure we have a dask bag of documents
+        if type(X) is not dask.bag.Bag:
+            documents = dask.bag.from_sequence(X)
+        else:
+            documents = X
 
+        if self.tokenize_by == "sentence":
+            self.tokenization_ = documents.map(sent_tokenize).flatten().map(tokenize)
         elif self.tokenize_by == "document":
-            self.tokenization_ = tuple([tuple(tokenize(doc)) for doc in X])
+            self.tokenization_ = documents.map(tokenize)
+        elif self.tokenize_by == "sentence_by_document":
+            def tokenize_list_of_sentences(alist):
+                return tuple(tokenize(sent) for sent in alist)
+            self.tokenization_ = documents.map(sent_tokenize).map(tokenize_list_of_sentences)
         else:
             raise ValueError(
                 'The tokenize_by parameter must be "document",  "sentence", or "sentence_by_document".'
@@ -259,23 +266,26 @@ class SKLearnTokenizer(BaseTokenizer):
         -------
         self
         """
+        # Ensure we have a dask bag of documents
+        if type(X) is not dask.bag.Bag:
+            documents = dask.bag.from_sequence(X)
+        else:
+            documents = X
 
-        if self.tokenize_by in ["sentence", "sentence_by_document"]:
-            self.tokenization_ = self._flatten(
-                [
-                    tuple([tuple(self.nlp(sent)) for sent in sent_tokenize(doc)])
-                    for doc in X
-                ]
-            )
-
+        if self.tokenize_by == "sentence":
+            self.tokenization_ = documents.map(sent_tokenize).flatten().map(self.nlp)
         elif self.tokenize_by == "document":
-            self.tokenization_ = tuple([tuple(self.nlp(doc)) for doc in X])
+            self.tokenization_ = documents.map(self.nlp)
+        elif self.tokenize_by == "sentence_by_document":
+            def tokenize_list_of_sentences(alist):
+                return tuple(self.nlp(sent) for sent in alist)
 
+            self.tokenization_ = documents.map(sent_tokenize).map(
+                tokenize_list_of_sentences)
         else:
             raise ValueError(
                 'The tokenize_by parameter must be "document",  "sentence", or "sentence_by_document".'
             )
-
         return self
 
 
@@ -347,25 +357,31 @@ class StanzaTokenizer(BaseTokenizer):
         else:
             token_text = lambda t: t.text
 
-        if self.tokenize_by in ["sentence", "sentence_by_document"]:
-            self.tokenization_ = self._flatten(
-                [
-                    tuple(
-                        [
-                            tuple([token_text(token) for token in sent.tokens])
-                            for sent in self.nlp(doc).sentences
-                        ]
-                    )
-                    for doc in X
-                ]
-            )
+        def stanza_sent_tokenize(doc):
+            return self.nlp(doc).sentences
+
+        def sentence_to_tokens(sent):
+            return tuple(token_text(token) for token in sent.tokens)
+
+        # Ensure we have a dask bag of documents
+        if type(X) is not dask.bag.Bag:
+            documents = dask.bag.from_sequence(X)
+        else:
+            documents = X
+
+        if self.tokenize_by == "sentence":
+            self.tokenization_ = documents.map(stanza_sent_tokenize).flatten().map(sentence_to_tokens)
         elif self.tokenize_by == "document":
-            self.tokenization_ = tuple(
-                [
-                    tuple([token_text(token) for token in self.nlp(doc).iter_tokens()])
-                    for doc in X
-                ]
-            )
+            def doc_to_tokens(doc):
+                return tuple(token_text(token) for token in self.nlp(doc).iter_tokens())
+            self.tokenization_ = documents.map(doc_to_tokens)
+        elif self.tokenize_by == "sentence_by_document":
+            def sentence_tokenize(doc):
+                return tuple(tuple(token_text(token) for token in sent.tokens)
+                                    for sent in self.nlp(doc).sentences
+                            )
+
+            self.tokenization_ = documents.map(sentence_tokenize)
         else:
             raise ValueError(
                 'The tokenize_by parameter must be "document",  "sentence", or "sentence_by_document".'
@@ -447,33 +463,65 @@ class SpacyTokenizer(BaseTokenizer):
         else:
             token_text = lambda t: t.text
 
-        # Tokenize the text
-        if self.tokenize_by in ["sentence", "sentence_by_document"]:
-            self.tokenization_ = self._flatten(
-                [
-                    tuple(
-                        [
-                            tuple([token_text(token) for token in sent])
-                            for sent in doc.sents
-                        ]
-                    )
-                    for doc in self.nlp.pipe(type_cast(X))
-                ]
-            )
+        # Ensure we have a dask bag of documents
+        if type(X) is not dask.bag.Bag:
+            documents = dask.bag.from_sequence(X).map(type_cast)
+        else:
+            documents = X.map(type_cast)
 
+        def spacy_sent_tokenize(doc):
+            return self.nlp.pipe(doc).sents
+
+        def sentence_to_tokens(sent):
+            return tuple(token_text(token) for token in sent)
+
+        if self.tokenize_by == "sentence":
+            self.tokenization_ = documents.map(spacy_sent_tokenize).flatten().map(sentence_to_tokens)
         elif self.tokenize_by == "document":
-            self.tokenization_ = tuple(
-                [
-                    tuple([token_text(token) for token in doc])
-                    for doc in self.nlp.pipe(type_cast(X))
-                ]
-            )
+            def doc_to_tokens(doc):
+                return tuple(token_text(token) for token in self.nlp.pipe(doc))
+            self.tokenization_ = documents.map(doc_to_tokens)
+        elif self.tokenize_by == "sentence_by_document":
+            def sentence_tokenize(doc):
+                return tuple(tuple(token_text(token) for token in sent)
+                                    for sent in self.nlp.pipe(doc).sents
+                            )
+
+            self.tokenization_ = documents.map(sentence_tokenize)
         else:
             raise ValueError(
                 'The tokenize_by parameter must be "document",  "sentence", or "sentence_by_document".'
             )
-
         return self
+
+
+        # # Tokenize the text
+        # if self.tokenize_by in ["sentence", "sentence_by_document"]:
+        #     self.tokenization_ = self._flatten(
+        #         [
+        #             tuple(
+        #                 [
+        #                     tuple([token_text(token) for token in sent])
+        #                     for sent in doc.sents
+        #                 ]
+        #             )
+        #             for doc in self.nlp.pipe(type_cast(X))
+        #         ]
+        #     )
+        #
+        # elif self.tokenize_by == "document":
+        #     self.tokenization_ = tuple(
+        #         [
+        #             tuple([token_text(token) for token in doc])
+        #             for doc in self.nlp.pipe(type_cast(X))
+        #         ]
+        #     )
+        # else:
+        #     raise ValueError(
+        #         'The tokenize_by parameter must be "document",  "sentence", or "sentence_by_document".'
+        #     )
+        #
+        # return self
 
 
 class BertWordPieceTokenizer(BaseTokenizer):
@@ -522,20 +570,25 @@ class BertWordPieceTokenizer(BaseTokenizer):
         self
         """
 
-        if self.tokenize_by in ["sentence", "sentence_by_document"]:
-            self.tokenization_ = self._flatten(
-                [
-                    tuple([tuple(self.nlp(sent)) for sent in sent_tokenize(doc)])
-                    for doc in X
-                ]
-            )
+        # Ensure we have a dask bag of documents
+        if type(X) is not dask.bag.Bag:
+            documents = dask.bag.from_sequence(X)
+        else:
+            documents = X
 
+        if self.tokenize_by == "sentence":
+            self.tokenization_ = documents.map(sent_tokenize).flatten().map(self.nlp)
         elif self.tokenize_by == "document":
-            self.tokenization_ = tuple([tuple(self.nlp(doc)) for doc in X])
+            self.tokenization_ = documents.map(self.nlp)
+        elif self.tokenize_by == "sentence_by_document":
+            def tokenize_list_of_sentences(alist):
+                return tuple(self.nlp(sent) for sent in alist)
 
+            self.tokenization_ = documents.map(sent_tokenize).map(
+                tokenize_list_of_sentences)
         else:
             raise ValueError(
                 'The tokenize_by parameter must be "document",  "sentence", or "sentence_by_document".'
             )
-
         return self
+
